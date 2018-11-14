@@ -13,10 +13,10 @@ lte_network.print_info()
 
 if (ue.sim is True):
     print (ue.attach(True))
-    ue.print_network_info()
+    if ue.lte.isattached():
+        ue.print_network_info()
     print(ue.create_info_list())
     print (ue.connect(True))
-
 
 if ue.lte.isconnected() is True:
     #start_mqtt()

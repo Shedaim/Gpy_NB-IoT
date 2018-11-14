@@ -41,7 +41,3 @@ def listen_http(port):
             cl.close()
     except:
         cl.close()
-
-ue.connect(False)
-ue.ping("172.17.60.2")
-http_get("172.17.60.2", 80)

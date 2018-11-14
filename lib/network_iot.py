@@ -29,6 +29,9 @@ class Network():
                 self.lte.send_at_cmd('AT+CFUN=1')
                 # Put UE in "Try to register" mode
                 self.lte.send_at_cmd('AT+CEREG=2')
+            else:
+                print("Error: No bands added to LTE scan list.")
+                return False
         elif self.net_type == "WIFI":
             pass
         elif self.net_type == "BT":

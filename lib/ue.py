@@ -15,45 +15,61 @@ class UE():
         self.cell = Cell(self.lte)
 
     # Function used to attach and dettach from an LTE network
-    def attach(self, state=True):
+    # Use retries for a non-blocking attach
+    def attach(self, state=True, retries=30):
         if state is False:
             self.lte.dettach()
             return ("Info: Dettached from network")
         if self.lte.isattached() is True:
             return ("Info: UE is already attached.")
-        print("Info: Trying to attach.")
-        for i in range(0,10):
+        print("Info: Trying to attach.", end='')
+        retries_left = retries
+        self.lte.attach()
+        while(retries_left > 0):
+            print('.', end='')
+            retries_left = retries_left - 1
             if self.lte.isattached() is False:
-                self.lte.attach()
                 sleep(2)
-            else:
+            else: # lte.isattached() returned True
                 # After successful attach, it's necessary to wait-
                 # untill cell details are available.
+                print('\nInfo: UE attached successfully.')
+                print('Getting network info.', end='')
                 while(self.cell.get_details() is False and self.lte.isattached() is True):
-                    sleep(5)
-                return ("Info: UE attached successfully.")
-        return ("Info: Could not attach in 10 re-tries.")
+                    print('.', end='')
+                    sleep(2)
+                print('')
+                return ("Info: Attach procedure ended successfully.")
+        print('')
+        return ("Info: Failed to attach after {0} retries".format(retries))
 
     # Function used to connect and disconnect from an LTE network
-    def connect(self, state=True):
+    # Use retries for a non-blocking connect
+    def connect(self, state=True, retries=30):
+        # Disconnect if state=False
         if state is False:
             self.lte.disconnect()
             return ("Info: Disconnected from network")
-        # If trying to connect when UE is not attached, an OSError happens-
-        # Here we catch the error and return it as a string.
-        try:
-            if self.lte.isconnected() is True:
-                return ("Info: UE is already connected.")
-            print("Info: Trying to connect.")
-            for i in range(0,10):
-                if self.lte.isconnected() is False:
-                    self.lte.connect()
-                    sleep(2)
-                else:
-                    return ("Info: UE connected successfully.")
-            return ("Info: Could not connect in 10 re-tries.")
-        except OSError as e:
-            return e
+        # Conenct if state=True, but first check if already connected
+        if self.lte.isconnected() is True:
+            return ("Info: UE is already connected.")
+        print("Info: Trying to connect.", end='')
+        retries_left = retries
+        if self.lte.isattached() is True:
+            self.lte.connect()
+        while(retries_left > 0):
+            print('.', end='')
+            retries_left = retries_left - 1
+            if self.lte.isconnected() is False:
+                sleep(2)
+            else: # lte.isconnected() returned True
+                print('')
+                return ("Info: UE connected successfully.")
+        print('')
+        if self.lte.isattached() is False:
+            return ("Warning: Cannot connect to network because UE is not attached.")
+        return ("Info: Failed to connect after {0} retries".format(retries))
+
 
     # Create a list containing important data - Used if
     # data is needed to be sent to server/database
@@ -74,10 +90,11 @@ class UE():
     # Function checks if there is a SIM card inserted by trying to get it's -
     # CCID and IMSI. On success, it saves the CCID and IMSI inside the class.
     def get_sim_details(self):
-        self.iccid = self.lte.iccid().strip('"')
+        self.iccid = self.lte.iccid()
         if self.iccid is None:
             self.sim = False
         else:
+            self.iccid = self.iccid.strip('"')
             self.sim = True
         try:
             self.imsi = re.search('[0-9]+', self.lte.send_at_cmd('AT+CIMI')).group(0)
@@ -87,7 +104,7 @@ class UE():
 
     # Prints UE static information: IMEI, IMSI, CCID.
     def print_info(self):
-        print("---------------Printing UE information----------------")
+        print("---------------UE information----------------")
         print ("IMEI: " + self.imei)
         if self.get_sim_details() is not False:
             try:
@@ -95,11 +112,12 @@ class UE():
                 print ("IMSI: " + self.imsi)
             except TypeError:
                 print ("Error: Error while printing SIM details.")
+        print('---------------------------------------------')
 
     # Prints dynamic network infromation: IP address, Serving cell -
     # get_details (cell ID, TaC, RSRP, etc.)
     def print_network_info(self):
-        print("---------------Printing Network information----------------")
+        print("---------------Network information----------------")
         if self.lte.isattached() is False:
             print ("Warning: UE not in attach mode, cannot fetch serving network data.")
             return False
@@ -107,6 +125,7 @@ class UE():
             if self.get_ip() is not None:
                 print ("IP address: " + self.ip)
             self.cell.print_all()
+            print('--------------------------------------------------')
             return True
 
     # Helper function to easily ping a remote server.
@@ -114,6 +133,7 @@ class UE():
         self.p('AT!="IP::ping {0}"'.format(ip))
 
     # Helper function to easily execute AT-commands and print it's contents.
+    # Disconnects and connectes to LTE network to become a non-blocking function.
     def p(self, cmd, delay=0):
         was_connected = self.lte.isconnected()
         if was_connected is True:
