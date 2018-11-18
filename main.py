@@ -32,22 +32,25 @@ if (ue.sim is True):
     print (ue.connect(cid=1))
 
 if ue.lte.isconnected() is True:
-    ue.add_sensor('T-1', 'Temperature', 0)
-    ue.add_sensor('Location-1', 'GPS', 0)
-    ue.add_sensor('Door-LAB1', 'Boolean', 0)
-    #http_message = ue.sensors_into_message()
-    #http.http_msg(http_message, type="POST")
-    #start_mqtt()
+    #ue.add_sensor('T-1', 'Temperature', 0)
+    #ue.add_sensor('Location-1', 'GPS', 0)
+    #ue.add_sensor('Door-LAB1', 'Boolean', 0)
+    #send_sensors_via_http():
+    #send_sensors_via_mqtt()
     #listen_http(80)
     #open_mgmt_socket()
     #download_config()
     #update_config()
     pass
 
-def start_mqtt():
-    import random
+def send_sensors_via_http():
+    http_message = ue.sensors_into_message()
+    http.http_msg(http_message, type="POST")
+
+def send_sensors_via_mqtt():
+    mqtt_message = ue.sensors_into_message()
     client = MQTTClient("GPy-Roni", "172.17.60.2", port=1883)
     client.connect()
     while(True):
-        mqtt_client.publish("Temperature", random.uniform(20,30))
+        mqtt_client.publish(mqtt_message)
         sleep(10)

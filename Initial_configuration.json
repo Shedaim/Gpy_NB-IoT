@@ -1,1 +1,1 @@
-{"Sleep_timer":60, "Name":"Pycom-IoT", "Remote_server":"HTTP:172.17.60.2:80:/", "LTE":[28,3]}
+{"Sleep_timer":60, "Name":"Pycom-IoT", "Remote_server":"HTTP:172.17.60.2:80:/", "LTE":[28,3], "Sensors":["T1,Temperature,1,2,3", "G1,GPS,0"]}

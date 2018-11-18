@@ -18,40 +18,8 @@ class UE():
         self.imsi = None
         self.iccid = None
         self.cell = Cell(self.lte)
-        self.sensors = set()
         self.config = Configuration()
         self.config.get_config(initial=True)
-
-
-    # Function used to configure a new sensor
-    def add_sensor(self, name, type, pins=0):
-        for sensor in self.sensors:
-            if sensor.name == name: # Duplicate name --> do not add sensor
-                log.error("Sensor {0} already exists.".format(name))
-                return False
-        self.sensors.add(Sensor(name, type, pins))
-        log.info("Sensor {0} added successfully.".format(name))
-        return True
-
-    # Function used to remove an old sensor - Also used if sensor's type
-    # or pins need to change, as there is no update_sensor method
-    def delete_sensor(self, name):
-        for sensor in self.sensors:
-            if sensor.name == name:
-                self.sensors.remove(sensor)
-                log.info("Sensor {0} removed successfully.".format(name))
-                return True
-        lof.info("Sensor {0} not found.".format(name))
-        return False
-
-    # Recieve a list of sensor objects and turn into a single json string.
-    def sensors_into_message(self):
-        sensors_dict = {}
-        for sensor in self.sensors:
-            sensor.get_value()
-            sensors_dict.update({sensor.type:sensor.value})
-        http_payload = ujson.dumps(sensors_dict)
-        return http_payload
 
     # Function used to attach and dettach from an LTE network
     # Use retries for a non-blocking attach
@@ -154,6 +122,15 @@ class UE():
             log.exception("Could not extract IMSI from SIM card.")
         return self.sim
 
+    # Take a list of sensor objects and turn into a single json string.
+    def sensors_into_message(self):
+        sensors_dict = {}
+        for sensor in self.config.sensors:
+            sensor.get_value()
+            sensors_dict.update({sensor.type:sensor.value})
+        http_payload = ujson.dumps(sensors_dict)
+        return http_payload
+
     # Prints UE static information: IMEI, IMSI, CCID.
     def print_info(self):
         print("---------------UE information----------------")
@@ -182,7 +159,7 @@ class UE():
 
     # Print all available sensors configured
     def print_sensors_info(self):
-        for sensor in self.sensors:
+        for sensor in self.config.sensors:
             sensor.print_info()
 
     # Helper function to easily ping a remote server.
@@ -200,30 +177,3 @@ class UE():
             print (i)
         if was_connected is True and self.lte.isconnected() is False:
             self.lte.connect()
-
-SENSOR_TYPES = ['Temperature', 'GPS', 'Boolean']
-
-class Sensor():
-
-    def __init__(self, name, type, pins=0):
-        self.name = name
-        self.type = type
-        self.pins = pins
-        self.value = None
-
-    def print_info(self):
-        print ("Name: {}, Type: {}, Pins: {}".format(self.name, self.type, self.pins))
-
-    def get_value(self):
-        if self.type not in SENSOR_TYPES:
-            return False
-        if self.type == 'Temperature': # Temperature
-            if self.pins == 0: # Internal value required
-                import machine
-                self.value = machine.temperature()
-            else:
-                pass # Read data from external sensor
-        elif self.type == 'GPS':
-            self.value = "No GPS support yet"
-        elif self.type == 'Boolean':
-            self.value = "No Boolean support yet"

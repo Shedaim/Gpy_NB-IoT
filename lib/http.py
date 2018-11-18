@@ -24,7 +24,8 @@ def http_msg(msg, type="GET", ip=REMOTE_SERVER_IP, port=REMOTE_SERVER_PORT, path
     try:
         s.connect(addr)
     except OSError as e:
-        log.exception(e)
+        log.exception("Could not connect socket to " + str(ip))
+        return False
     s.send(bytes('{0} {1} HTTP/1.1\r\nHost: {2}:{3}\r\n{4}'.format(type, path, ip, port, msg), 'utf8'))
     log.info('Sent HTTP request to {0} on port {1}'.format(REMOTE_SERVER_IP, REMOTE_SERVER_PORT))
     if type == "GET":
@@ -35,9 +36,10 @@ def http_msg(msg, type="GET", ip=REMOTE_SERVER_IP, port=REMOTE_SERVER_PORT, path
                 return str(data, 'utf8')
             else:
                 log.warning("Did not get response to HTTP GET request.")
+                s.close()
                 return False
-                break
     s.close()
+    return True
 
 # Listens on a specific port for HTTP messages and returns a simple "page"
 def listen_http(port):
