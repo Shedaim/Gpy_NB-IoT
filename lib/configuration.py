@@ -3,6 +3,7 @@ import lib.logging as logging
 import ujson
 import lib.http as http
 from lib.sensor import Sensor
+import lib.wifi as wifi
 
 log = logging.getLogger("Config")
 
@@ -38,20 +39,33 @@ class Configuration():
                 self.sleep_timer = dictionary[val]
                 # NEED to add implementation of sleep (eDRX?)
             elif val == "Remote_server":
-                # Should contain data in the form 'Protocol:IP:port:path'
+                # Data in the form 'Protocol:IP:port:path'
                 self.config_remote(dictionary[val].split(':'))
             elif val == "LTE":
                 self.lte = True
                 self.lte_bands = dictionary[val]
             elif val == "WIFI":
-                self.wifi = True
-                pass # NEED to parse ssid, channels, etc.
+                self.config_wifi(dictionary[val])
             elif val == "BT":
                 self.bt = True
                 pass # NEED to parse variables.
             elif val == "Sensors":
                 for sensor in dictionary[val]:
                     self.config_sensor(sensor.split(','))
+
+    # Config the Wifi module
+    def config_wifi(self, data):
+        # 0 - mode         # 1 - ssid                       # 2 - password
+        # 3 - channel      # 4 - antenna pin or internal    # 5 - Default GW
+        # 6 - GW subnet    # 7 - ip address                 # 8 - subnet
+        try:
+            self.wifi = wifi.WIFI(data[0],data[1],(wifi.WLAN_WPA2,data[2]),data[3],data[4])
+            if data[0] == wifi.WLAN_AP: # WiFi in AP mode
+                self.wifi.ip_configuration(data[5], data[6])
+            else: # WiFi in Station mode
+                self.wifi.ip_configuration(data[5], data[6], data[0], data[7], data[8])
+        except AttributeError:
+            log.exception("WiFi configuration is wrong.")
 
     # Config the remote server details given configuration data
     def config_remote(self, data):

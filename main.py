@@ -23,6 +23,12 @@ if ue.config.lte is True:
         lte_network.configure_network()
         lte_network.print_info()
 
+# Check if WiFi is configured to be turned on
+if ue.config.wifi is not None:
+    print("-----WIFI SETUP-----")
+    ue.config.wifi.wifi_metadata()
+    print("-----WIFI SETUP END-----")
+
 # Check if SIM is readable
 if (ue.sim is True):
     print (ue.attach())
