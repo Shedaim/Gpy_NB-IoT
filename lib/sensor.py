@@ -1,3 +1,5 @@
+import time
+
 SENSOR_TYPES = ['Temperature', 'GPS', 'Boolean']
 class Sensor():
 
@@ -14,7 +16,7 @@ class Sensor():
         if self.type not in SENSOR_TYPES:
             return False
         if self.type == 'Temperature': # Temperature
-            if self.pins == 0: # Internal value required
+            if self.pins == ['0']: # Internal value required
                 import machine
                 self.value = machine.temperature()
             else:

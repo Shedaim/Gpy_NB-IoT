@@ -17,6 +17,7 @@ class Configuration():
         self.bt = None
         self.remote_server = list()
         self.sensors = set()
+        self.http = http.HTTP()
 
     # Create HTTP message to download configurations or read from saved file
     def get_config(self, initial=False):
@@ -36,7 +37,7 @@ class Configuration():
             if val == "Name":
                 self.name = dictionary[val]
             elif val == "Sleep_timer":
-                self.sleep_timer = dictionary[val]
+                self.sleep_timer = int(dictionary[val])
                 # NEED to add implementation of sleep (eDRX?)
             elif val == "Remote_server":
                 # Data in the form 'Protocol:IP:port:path'
@@ -71,7 +72,9 @@ class Configuration():
     def config_remote(self, data):
         self.remote_server.append(data)
         if data[0] == "HTTP":
-            http.http_config(data[1], data[2], data[3])
+            self.http.host = data[1]
+            self.http.port = int(data[2])
+            self.http.path = data[3]
 
     # Config a sensor given it's configuration data
     def config_sensor(self, data):
@@ -120,3 +123,5 @@ class Configuration():
                 print ("Remote server (Protocol:IPaddress:Port:path): " + str(server))
         if self.lte is True:
             print ("LTE bands: " + str(self.lte_bands))
+        if sekf.wifi is not None:
+            print ("WiFi configuration:\n" + self.wifi.print_wifi())

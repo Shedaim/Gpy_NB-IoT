@@ -35,15 +35,20 @@ class WIFI():
         self.wlan.ifconfig(id=self.mode, config=(self.ip_address, self.subnet, self.server_ip, self.dns))
 
 
-    def wifi_metadata(self):
-        print("Mode: %s" % self.wlan.mode())
+    def print_wifi(self):
+        print ("------------Wifi configuration:------------")
+        if self.wlan.mode() == 1:
+            mode =  "Station"
+        else:
+            mode = "Access Point"
+        print("Mode: %s" % mode)
         print("SSID: %s" % self.wlan.ssid())
         print("Channel: %s" % self.wlan.channel())
         print("Wifi gateway ip: %s" %  self.ip_address)
         print("Wifi netmask: %s" %  self.subnet)
         print("Server IP: %s" %  self.server_ip)
         print("DNS IP: %s" %  self.dns)
-        print(self.mac_pretty_print())
+        print("MAC address: %s" % self.mac_pretty_print())
 
 
     def mac_pretty_print(self):

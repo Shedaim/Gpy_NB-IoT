@@ -4,31 +4,42 @@ import lib.logging as logging
 
 log = logging.getLogger("HTTP")
 
-REMOTE_SERVER_IP = '172.17.60.2'
-REMOTE_SERVER_PORT = 80
-REMOTE_SERVER_PATH = '/'
+class HTTP():
 
-def http_config(remote_ip, remote_port, remote_path):
-    log.info("Updated HTTP configuration")
-    global REMOTE_SERVER_IP
-    REMOTE_SERVER_IP = remote_ip
-    global REMOTE_SERVER_PORT
-    REMOTE_SERVER_PORT = remote_port
-    global REMOTE_SERVER_PATH
-    REMOTE_SERVER_PATH = remote_path
+    def __init__(self):
+        self.host = None
+        self.port = None
+        self.path = None
 
-# Send a GET message to a remote HTTP server and recieve the answer
-def http_msg(msg, type="GET", ip=REMOTE_SERVER_IP, port=REMOTE_SERVER_PORT, path=REMOTE_SERVER_PATH):
-    addr = socket.getaddrinfo(ip, port)[0][-1]
-    s = socket.socket()
-    try:
-        s.connect(addr)
-    except OSError as e:
-        log.exception("Could not connect socket to " + str(ip))
-        return False
-    s.send(bytes('{0} {1} HTTP/1.1\r\nHost: {2}:{3}\r\n{4}'.format(type, path, ip, port, msg), 'utf8'))
-    log.info('Sent HTTP request to {0} on port {1}'.format(REMOTE_SERVER_IP, REMOTE_SERVER_PORT))
-    if type == "GET":
+    def http_to_packet(self, type, content_type, message):
+        if self.host is None or self.port is None or self.path is None:
+            return False
+        packet = ''
+        packet += type + ' ' + self.path + " HTTP/1.1" + '\r\n'
+        packet += "Host: " + self.host + '\r\n'
+        packet += 'Accept: */*' + '\r\n'
+        packet += "Content-Type:" + str(content_type) + '\r\n'
+        packet += "Content-Length: " + str(len(message)) + '\r\n\r\n'
+        packet += message + '\r\n'
+        return packet
+
+    # Send a POST message to a remote HTTP server and recieve the answer
+    def send_post_message(self, packet):
+        addr = socket.getaddrinfo(self.host, self.port)[0][-1]
+        log.info('Sending HTTP message to address: {0}:{1}'.format(self.host, self.port))
+        s = socket.socket()
+        try:
+            s.connect(addr)
+        except OSError as e:
+            log.exception("Could not connect socket to " + str(self.host))
+            return False
+        s.send(bytes(packet, 'utf8'))
+        log.info('Sent HTTP request to {0} on port {1}'.format(self.host, self.port))
+        s.close()
+        return True
+
+    # Send a GET message to a remote HTTP server and recieve the answer
+    def send_get_message(self, packet):
         while True:
             data = s.recv(4096)
             if data:
@@ -38,8 +49,8 @@ def http_msg(msg, type="GET", ip=REMOTE_SERVER_IP, port=REMOTE_SERVER_PORT, path
                 log.warning("Did not get response to HTTP GET request.")
                 s.close()
                 return False
-    s.close()
-    return True
+        s.close()
+        return True
 
 # Listens on a specific port for HTTP messages and returns a simple "page"
 def listen_http(port):
