@@ -87,6 +87,9 @@ class Configuration():
 
     # Config a sensor given it's configuration data
     def config_sensor(self, data):
+        # Name, Type, Model, Pins
+        # Pins = 0 --> internal sensor
+        # Pins = [Ground, VCC, Data]
         for sensor in self.sensors:
             if sensor.name == data[0] and sensor.model == data[2] and sensor.pins == data[3:]: # Sensor already configured.
                 log.info("Sensor {0} already exists. No changes done.".format(data[0]))

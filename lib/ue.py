@@ -127,7 +127,7 @@ class UE():
         sensors_dict = {}
         for sensor in self.config.sensors:
             sensor.get_value()
-            sensors_dict.update({sensor.model:sensor.value})
+            sensors_dict.update({sensor.name:sensor.value})
         http_payload = ujson.dumps(sensors_dict)
         return http_payload
 

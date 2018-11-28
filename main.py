@@ -6,13 +6,6 @@ import lib.logging as logging
 from lib.wifi import WLAN_AP
 log = logging.getLogger("Main")
 
-# Initialize ue object and print it's data
-ue = UE()
-ue.print_info()
-
-# Wait untill initial configuration has been updated
-sleep(5)
-
 def send_sensors_via_http():
     message = ue.sensors_into_message()
     type = "POST"
@@ -65,57 +58,63 @@ def send_sensors_via_mqtt():
     mqtt_message = ue.sensors_into_message()
     mqtt_client.publish(mqtt_message)
 
-# Check if LTE is configured to be turned on
-if ue.config.lte is True:
-    if ue.lte.isconnected() is False:
-        # Create LTE network instance
-        lte_network = Network(ue, "LTE", ue.config.lte_bands)
-        # Make initial configuration to modem
-        ue.p('AT!="setDbgPerm full"')
-        lte_network.configure_network()
-        lte_network.print_info()
+def main():
+    # Initialize ue object and print it's data
+    ue = UE()
+    ue.print_info()
+    # Wait untill initial configuration has been updated
+    sleep(5)
 
-# Check if WiFi is configured to be turned on
-if ue.config.wifi is not None:
-    if ue.config.wifi.mode == WLAN_AP:
-        # Create access point for wifi
-        ue.config.wifi.print_wifi()
-    else: # Device needs to connect to a remote wifi gateway
-        # Try to connect to wifi gateway and get ip adress and gw info
-        ue.config.wifi.print_wifi()
+    # Check if LTE is configured to be turned on
+    if ue.config.lte is True:
+        if ue.lte.isconnected() is False:
+            # Create LTE network instance
+            lte_network = Network(ue, "LTE", ue.config.lte_bands)
+            # Make initial configuration to modem
+            ue.p('AT!="setDbgPerm full"')
+            lte_network.configure_network()
+            # lte_network.print_info()
 
-# Check if SIM is readable
-if (ue.sim is True):
-    print (ue.attach())
-    if ue.lte.isattached():
-        ue.print_network_info()
-    print(ue.create_info_list())
-    print (ue.connect(cid=1))
+    # Check if SIM is readable
+    if (ue.sim is True):
+        ue.attach()
+        if ue.lte.isattached():
+            ue.print_network_info()
+            ue.connect(cid=1) # Need to check if it's possible to get a different cid
 
-if ue.lte.isconnected() is True:
-    # Try to open HTTP socket
-    try:
-        ue.config.http.open_socket()
-    except AttributeError:
+    # Check if WiFi is configured to be turned on
+    if ue.config.wifi is not None:
+        if ue.config.wifi.mode == WLAN_AP:
+            # Create access point for wifi
+            ue.config.wifi.print_wifi()
+        else: # Device needs to connect to a remote wifi gateway
+            # Try to connect to wifi gateway and get ip adress and gw info
+            ue.config.wifi.print_wifi()
+
+    if ue.lte.isconnected() is True:
+        # Try to open HTTP socket
         try:
-            ue.config.mqtt.connect()
+            ue.config.http.open_socket()
         except AttributeError:
-            log.exception()
+            try:
+                ue.config.mqtt.connect()
+            except AttributeError:
+                log.exception()
+        
+        # Subscribe to attributes updates
 
-    # Subscribe to attributes updates
+        #subscribe_to_server()
+        # Try to open socket and wait
+        #while (True):
+            # Send periodic message over HTTP and listen to upcoming messages
+            #send_sensors_via_http()
+            #wait_for_answer()
+        #ue.add_sensor('T-1', 'Temperature', 0)
+        #ue.add_sensor('Location-1', 'GPS', 0)
+        #ue.add_sensor('Door-LAB1', 'Boolean', 0)
 
-    #subscribe_to_server()
-    # Try to open socket and wait
-    #while (True):
-        # Send periodic message over HTTP and listen to upcoming messages
-        #send_sensors_via_http()
-        #wait_for_answer()
-    #ue.add_sensor('T-1', 'Temperature', 0)
-    #ue.add_sensor('Location-1', 'GPS', 0)
-    #ue.add_sensor('Door-LAB1', 'Boolean', 0)
-
-    #send_sensors_via_mqtt()
-    #listen_http(80)
-    #download_config()
-    #update_config()
-    pass
+        #send_sensors_via_mqtt()
+        #listen_http(80)
+        #download_config()
+        #update_config()
+        pass
