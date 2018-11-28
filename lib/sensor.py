@@ -1,4 +1,5 @@
 import time
+from dth import DTH
 
 SENSOR_TYPES = ['Temperature', 'GPS', 'Boolean']
 TEMPERATURE_SENSORS = ['internal']
