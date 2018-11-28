@@ -87,29 +87,29 @@ class Configuration():
 
     # Config a sensor given it's configuration data
     def config_sensor(self, data):
-        # Name, Type, Model, Pins
+        # Name, Model, Pins
         # Pins = 0 --> internal sensor
         # Pins = [Ground, VCC, Data]
         for sensor in self.sensors:
-            if sensor.name == data[0] and sensor.model == data[2] and sensor.pins == data[3:]: # Sensor already configured.
+            if sensor.name == data[0] and sensor.model == data[1] and sensor.pins == data[2:]: # Sensor already configured.
                 log.info("Sensor {0} already exists. No changes done.".format(data[0]))
                 return
             elif sensor.name == data[0]: # Found sensor with the same name but different configuration.
                 log.warning("Sensor with the same name ({0}), already exists, changing sensor values.")
                 self.delete_sensor(data[0]) # Delete old sensor details
-                self.add_sensor(data[0], data[1], data[2], data[3:])
+                self.add_sensor(data[0], data[1], data[2:])
                 return
         # No similar sensor found.
-        self.add_sensor(data[0], data[1], data[2], data[3:])
+        self.add_sensor(data[0], data[1], data[2:])
         return
 
     # Function used to configure a new sensor
-    def add_sensor(self, name, type, model, pins=0):
+    def add_sensor(self, name, model, pins=0):
         for sensor in self.sensors:
             if sensor.name == name: # Duplicate name --> do not add sensor
                 log.error("Sensor {0} already exists.".format(name))
                 return False
-        self.sensors.add(Sensor(name, type, model, pins))
+        self.sensors.add(Sensor(name, model, pins))
         log.info("Sensor {0} added successfully.".format(name))
         return True
 

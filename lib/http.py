@@ -38,6 +38,7 @@ class HTTP():
 
     # Send a message to a remote HTTP server and recieve the answer
     def send_message(self, packet):
+        self.open_socket()
         log.info('Sending HTTP message to address: {0}:{1}'.format(self.host, self.port))
         try:
             self.s.send(bytes(packet, 'utf8'))
@@ -46,6 +47,7 @@ class HTTP():
             self.s.close()
             return False
         log.info('Sent HTTP POST request to {0} on port {1}'.format(self.host, self.port))
+        self.s.close()
         return True
 
 # Listens on a specific port for HTTP messages and returns a simple "page"

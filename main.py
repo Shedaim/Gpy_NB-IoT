@@ -93,13 +93,7 @@ if ue.config.wifi is not None:
 
 if ue.lte.isconnected() is True:
     # Try to open HTTP socket
-    try:
-        ue.config.http.open_socket()
-    except AttributeError:
-        try:
-            ue.config.mqtt.connect()
-        except AttributeError:
-            log.exception()
+
 
     # Subscribe to attributes updates
 

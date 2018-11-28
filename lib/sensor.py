@@ -1,22 +1,30 @@
 import time
+import lib.logging as logging
 from lib.dth import DTH
 from machine import Pin
-import lib.logging as logging
 
 log = logging.getLogger("Sensor")
-SENSOR_TYPES = ['Temperature', 'GPS', 'Boolean']
-TEMPERATURE_SENSORS = ['internal', 'dth11']
-GPS_SENSORS = []
-BOOLEAN_SENSORS = []
+SENSOR_MODELS = {'dth11':['Temperature','Humidity']}
+
+# Internal CPU temperature - No pins - Shows temperature in Farenheit.
+INTERNAL_CPU_TEMPERATURE = "cpu_temp"
+# DTH11 - Temperature and Humidity sensor - Requires Ground, VCC and data Pins
+DTH11 = 'dth11'
 
 class Sensor():
 
-    def __init__(self, name, type, model, pins=0):
+    def __init__(self, name, model, pins=0):
         self.name = name
-        self.type = type
         self.model = model
         self.pins = pins
         self.value = None
+        self.get_types()
+
+    def get_types(self):
+        try:
+            self.type = SENSOR_MODELS[self.model]
+        except AttributeError:
+            log.exception("Sensor model not found.")
 
     def print_info(self):
         print ("Name: {}, Type: {}, Model: {}, Pins: {}".format(self.name, self.type, self.model, self.pins))
@@ -31,33 +39,25 @@ class Sensor():
 
     def temperature_sensor_read_data(self):
         th = DTH(Pin(self.pins[2], mode=Pin.OPEN_DRAIN),0)
+        time.sleep(1)
         result = th.read()
         if result.is_valid():
-            value = str({"Temperature":str(result.temperature) + "C", "Humidity":result.humidity})
-            while True:
-                try:
-                    t = self.value
-                    break
-                except NameError:
-                    pass
+            value = [result.temperature, result.humidity]
+            while value is None:
+                time.sleep(0.2)
+            log.info("got sensor values: " + str(value))
             return value
+        else:
+            log.warning("Could not extract data from sensor: " + self.name)
 
     def get_value(self):
-        if self.type not in SENSOR_TYPES:
-            log.error("Sensor type undefined.")
-            return False
-        if self.type == 'Temperature': # Temperature
-            if self.model not in TEMPERATURE_SENSORS:
-                log.error("Sensor model undefined.")
-                return False
-            if self.model == 'dth11':
-                self.power_pin_set()
-                self.ground_pin_set()
-                self.value = self.temperature_sensor_read_data()
-            if self.model == 'internal': # Internal value required
-                import machine
-                self.value = machine.temperature()
-
+        if self.model == DTH11:
+            self.power_pin_set()
+            self.ground_pin_set()
+            self.value = self.temperature_sensor_read_data()
+        if self.model == INTERNAL_CPU_TEMPERATURE: # Internal value required
+            import machine
+            self.value = machine.temperature()
         elif self.type == 'GPS':
             self.value = "No GPS support yet"
         elif self.type == 'Boolean':

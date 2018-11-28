@@ -127,7 +127,11 @@ class UE():
         sensors_dict = {}
         for sensor in self.config.sensors:
             sensor.get_value()
-            sensors_dict.update({sensor.name:sensor.value})
+            for i in range(len(sensor.type)) :
+                if sensor.value is None:
+                    sensors_dict.update({sensor.type[i]:None})
+                else:
+                    sensors_dict.update({sensor.type[i]:sensor.value[i]})
         http_payload = ujson.dumps(sensors_dict)
         return http_payload
 
