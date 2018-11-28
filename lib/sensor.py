@@ -1,15 +1,19 @@
 import time
 import lib.logging as logging
 from lib.dth import DTH
+from main import send_sensors_via_http
 from machine import Pin
 
 log = logging.getLogger("Sensor")
-SENSOR_MODELS = {'dth11':['Temperature','Humidity']}
 
 # Internal CPU temperature - No pins - Shows temperature in Farenheit.
 INTERNAL_CPU_TEMPERATURE = "cpu_temp"
 # DTH11 - Temperature and Humidity sensor - Requires Ground, VCC and data Pins
 DTH11 = 'dth11'
+# REED - Redd switch for Door opening - Requires Ground, VCC and data Pins
+REED = 'reed'
+
+SENSOR_MODELS = {DTH11:['Temperature','Humidity'], REED:['Boolean'], INTERNAL_CPU_TEMPERATURE:['Temperature']}
 
 class Sensor():
 
@@ -50,6 +54,20 @@ class Sensor():
         else:
             log.warning("Could not extract data from sensor: " + self.name)
 
+
+    def external_interrupts(arg):
+        if arg():
+            log.info("The Door is Open!!")
+            send_sensors_via_http(alarm=True, {self.type:1})
+        else:
+            log.info("The Door is Closed!!")
+            send_sensors_via_http(alarm=True, {self.type:0})
+
+
+    def door_sensor_read_data(self):
+        p_Data = Pin(self.pins[2], mode=Pin.IN, pull=Pin.PULL_UP)
+        p_Data.callback(Pin.IRQ_FALLING | Pin.IRQ_RISING, self.external_interrupts)
+
     def get_value(self):
         if self.model == DTH11:
             self.power_pin_set()
@@ -58,7 +76,11 @@ class Sensor():
         if self.model == INTERNAL_CPU_TEMPERATURE: # Internal value required
             import machine
             self.value = machine.temperature()
-        elif self.type == 'GPS':
+        if self.model == REED:
+            self.power_pin_set()
+            self.ground_pin_set()
+            self.door_sensor_read_data()
+        if self.type == 'GPS':
             self.value = "No GPS support yet"
-        elif self.type == 'Boolean':
+        if self.type == 'Boolean':
             self.value = "No Boolean support yet"
