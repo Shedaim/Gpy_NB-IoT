@@ -124,16 +124,24 @@ class UE():
 
     # Take a list of sensor objects and turn into a single json string.
     def sensors_into_message(self):
-        sensors_dict = {}
+        self.sensors_dict = {}
         for sensor in self.config.sensors:
             sensor.get_value()
-            for i in range(len(sensor.type)) :
-                if sensor.value is None:
-                    sensors_dict.update({sensor.type[i]:None})
-                else:
-                    sensors_dict.update({sensor.type[i]:sensor.value[i]})
-        http_payload = ujson.dumps(sensors_dict)
+            if len(sensor.type) == 1:
+                self.add_to_dict(sensor.type[0], sensor.value)
+            else:
+                for i in range(len(sensor.type)):
+                    if sensor.value is None:
+                        self.add_to_dict(sensor.type[i], None)
+                    else:
+                        self.add_to_dict(sensor.type[i], sensor.value[i])
+        http_payload = ujson.dumps(self.sensors_dict)
         return http_payload
+
+    def add_to_dict(self, key, value):
+        if key in self.sensors_dict:  # Key already in dictionary
+            key = key + "_" + self.name
+        self.sensors_dict[key] = value
 
     # Prints UE static information: IMEI, IMSI, CCID.
     def print_info(self):

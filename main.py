@@ -6,8 +6,11 @@ import lib.logging as logging
 from lib.wifi import WLAN_AP
 log = logging.getLogger("Main")
 
-def send_sensors_via_http():
-    message = ue.sensors_into_message()
+def send_sensors_via_http(alarm=False, data=False):
+    if alarm is not False:
+        message = data
+    else:
+        message = ue.sensors_into_message()
     type = "POST"
     try:
         path = http.TELEMETRY_PATH.replace('token', ue.config.token)
