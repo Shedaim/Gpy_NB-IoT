@@ -16,25 +16,54 @@ sleep(5)
 def send_sensors_via_http():
     message = ue.sensors_into_message()
     type = "POST"
+    try:
+        path = http.TELEMETRY_PATH.replace('token', ue.config.token)
+    except AttributeError as e:
+        log.exception()
     content_type = "application/json"
-    packet = ue.config.http.http_to_packet(type, content_type, message)
+    packet = ue.config.http.http_to_packet(type, path, content_type, message)
     if packet is not False:
-        ue.config.http.send_post_message(packet)
+        ue.config.http.send_message(packet)
         #wait_for_answer
             #if ack good
             #else if 400 bad http request
             #else if 401 bad token
-            #  else if 404 resource not found 
+            #  else if 404 resource not found
     else:
         log.warning("Missing vital information for an HTTP message: " + packet)
 
+def subscribe_to_server():
+    try:
+        path = http.SUBSCRIBE_PATH.replace('token', ue.config.token)
+    except AttributeError as e:
+        log.exception()
+    packet = ue.config.http.http_to_packet("GET", path, None, None)
+    if packet is not False:
+        ue.config.http.send_message(packet)
+    else:
+        log.warning("Missing vital information for an HTTP message: " + packet)
+
+def wait_for_answer():
+    ue.config.http.open_socket()
+    ue.config.http.s.settimeout(ue.config.sleep_timer)
+    response = ''
+    while True:
+        try:
+            data = str(ue.config.http.s.recv(100), 'utf8')
+        except TimeoutError:
+            ue.config.http.s.close()
+            return False
+        if data:
+            response += data
+        else:
+            break
+    print (data)
+    ue.config.http.s.close()
+    return True
+
 def send_sensors_via_mqtt():
     mqtt_message = ue.sensors_into_message()
-    client = MQTTClient("GPy-Roni", "172.17.60.2", port=1883)
-    client.connect()
-    while(True):
-        mqtt_client.publish(mqtt_message)
-        sleep(10)
+    mqtt_client.publish(mqtt_message)
 
 # Check if LTE is configured to be turned on
 if ue.config.lte is True:
@@ -64,9 +93,23 @@ if (ue.sim is True):
     print (ue.connect(cid=1))
 
 if ue.lte.isconnected() is True:
-    while (True):
-        send_sensors_via_http()
-        sleep(ue.config.sleep_timer)
+    # Try to open HTTP socket
+    try:
+        ue.config.http.open_socket()
+    except AttributeError:
+        try:
+            ue.config.mqtt.connect()
+        except AttributeError:
+            log.exception()
+
+    # Subscribe to attributes updates
+
+    #subscribe_to_server()
+    # Try to open socket and wait
+    #while (True):
+        # Send periodic message over HTTP and listen to upcoming messages
+        #send_sensors_via_http()
+        #wait_for_answer()
     #ue.add_sensor('T-1', 'Temperature', 0)
     #ue.add_sensor('Location-1', 'GPS', 0)
     #ue.add_sensor('Door-LAB1', 'Boolean', 0)

@@ -4,20 +4,21 @@ import ujson
 import lib.http as http
 from lib.sensor import Sensor
 import lib.wifi as wifi
+import lib.mqtt as mqtt
 
 log = logging.getLogger("Config")
 
 class Configuration():
 
     def __init__(self):
-        self.name = None
+        self.name = "Pycom-Default"
         self.sleep_timer = None
         self.lte = None
         self.wifi = None
         self.bt = None
         self.remote_server = list()
         self.sensors = set()
-        self.http = http.HTTP()
+        self.http = None
 
     # Create HTTP message to download configurations or read from saved file
     def get_config(self, initial=False):
@@ -29,6 +30,10 @@ class Configuration():
             result = http.http_msg('', type="GET", path=full_path)
         log.info('Read initial configuration: ' + result)
         self.turn_message_to_config(result)
+
+    def update_initial_file(self, json_string):
+        with open('Initial_configuration.json', 'w') as f:
+            f.write(json_string)
 
     # Convert dictionary to specific object configurations
     def turn_message_to_config(self, message):
@@ -53,6 +58,8 @@ class Configuration():
             elif val == "Sensors":
                 for sensor in dictionary[val]:
                     self.config_sensor(sensor.split(','))
+            elif val == "Token":
+                self.token = dictionary[val]
 
     # Config the Wifi module
     def config_wifi(self, data):
@@ -72,32 +79,34 @@ class Configuration():
     def config_remote(self, data):
         self.remote_server.append(data)
         if data[0] == "HTTP":
+            self.http = http.HTTP()
             self.http.host = data[1]
             self.http.port = int(data[2])
-            self.http.path = data[3]
+        elif data[0] == "MQTT":
+            self.mqtt = mqtt.MQTTClient(self.name, data[1], int(data[2]))
 
     # Config a sensor given it's configuration data
     def config_sensor(self, data):
         for sensor in self.sensors:
-            if sensor.name == data[0] and sensor.type == data[1] and sensor.pins == data[2:]: # Sensor already configured.
+            if sensor.name == data[0] and sensor.model == data[2] and sensor.pins == data[3:]: # Sensor already configured.
                 log.info("Sensor {0} already exists. No changes done.".format(data[0]))
                 return
             elif sensor.name == data[0]: # Found sensor with the same name but different configuration.
                 log.warning("Sensor with the same name ({0}), already exists, changing sensor values.")
                 self.delete_sensor(data[0]) # Delete old sensor details
-                self.add_sensor(data[0], data[1], data[2:])
+                self.add_sensor(data[0], data[1], data[2], data[3:])
                 return
         # No similar sensor found.
-        self.add_sensor(data[0], data[1], data[2:])
+        self.add_sensor(data[0], data[1], data[2], data[3:])
         return
 
     # Function used to configure a new sensor
-    def add_sensor(self, name, type, pins=0):
+    def add_sensor(self, name, type, model, pins=0):
         for sensor in self.sensors:
             if sensor.name == name: # Duplicate name --> do not add sensor
                 log.error("Sensor {0} already exists.".format(name))
                 return False
-        self.sensors.add(Sensor(name, type, pins))
+        self.sensors.add(Sensor(name, type, model, pins))
         log.info("Sensor {0} added successfully.".format(name))
         return True
 
