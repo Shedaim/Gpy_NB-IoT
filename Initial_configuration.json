@@ -1,1 +1,10 @@
-{"Sleep_timer":60, "Name":"Pycom-IoT", "Remote_server":"HTTP:172.17.60.2:80", "Token":"kFNoIHzmktMtW4xAa1J3", "LTE":[28], "WIFI":[2,"PycomWifi","p@ssw0rd",11,0,"172.17.60.2","172.17.60.2"], "Sensors":["OnPycom_DTH11,dth11,G6,G7,G8"]}
+{
+  "Sleep_timer":60,
+  "Name":"Pycom-IoT",
+  "Remote_server":"HTTP:172.17.60.2:80",
+  "Token":"kFNoIHzmktMtW4xAa1J3",
+  "LTE":[28],
+  "WIFI":[2,"PycomWifi",
+  "p@ssw0rd",11,0,"172.17.60.2","172.17.60.2"],
+  "Sensors":["OnPycom_Temp,cpu_temp,0","DTH11,dth11,G6,G7,G8"]
+}

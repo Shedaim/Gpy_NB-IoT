@@ -6,6 +6,7 @@ log = logging.getLogger("HTTP")
 
 TELEMETRY_PATH = '/api/v1/token/telemetry'
 SUBSCRIBE_PATH = '/api/v1/token/attributes/updates'
+ATTRIBUTES_PATH = '/api/v1/token/attributes'
 
 class HTTP():
 
@@ -33,7 +34,7 @@ class HTTP():
             packet += "Content-Type:" + str(content_type) + '\r\n'
         if message is not None:
             packet += "Content-Length: " + str(len(message)) + '\r\n\r\n'
-            packet += message + '\r\n'
+            packet += str(message) + '\r\n'
         return packet
 
     # Send a message to a remote HTTP server and recieve the answer

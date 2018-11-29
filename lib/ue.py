@@ -5,6 +5,7 @@ import re
 from time import sleep, time
 import lib.logging as logging
 import ujson
+import lib.http as http
 
 log = logging.getLogger("UE")
 
@@ -20,6 +21,7 @@ class UE():
         self.cell = Cell(self.lte)
         self.config = Configuration()
         self.config.get_config(initial=True)
+        self.alarms = False
 
     # Function used to attach and dettach from an LTE network
     # Use retries for a non-blocking attach
@@ -58,6 +60,9 @@ class UE():
     # Function used to connect and disconnect from an LTE network
     # Use retries for a non-blocking connect
     def connect(self, state=True, retries=30, cid=1):
+        if self.lte.isattached() is False:
+            log.warning("Cannot connect/disconnect to/from network because UE is not attached.")
+            return False
         # Disconnect if state=False
         if state is False:
             self.lte.disconnect()
@@ -81,9 +86,6 @@ class UE():
                 log.info("Connected successfully.")
                 return True
         print('')
-        if self.lte.isattached() is False:
-            log.warning("Cannot connect to network because UE is not attached.")
-            return False
         log.info("Failed to connect after {0} retries".format(retries))
         return False
 
@@ -122,25 +124,53 @@ class UE():
             log.exception("Could not extract IMSI from SIM card.")
         return self.sim
 
+    def send_sensors_via_http(self, alarm=False, data=False):
+        if alarm is not False:
+            message = str(data)
+        else:
+            message = self.sensors_into_message()
+        type = "POST"
+        content_type = "application/json"
+        try:
+            path = http.TELEMETRY_PATH.replace('token', self.config.token)
+        except AttributeError as e:
+            log.exception()
+
+        packet = self.config.http.http_to_packet(type, path, content_type, message)
+        if packet is not False:
+            self.config.http.send_message(packet)
+            #wait_for_answer
+                #if ack good
+                #else if 400 bad http request
+                #else if 401 bad token
+                #  else if 404 resource not found
+        else:
+            log.warning("Missing vital information for an HTTP message: " + packet)
+
     # Take a list of sensor objects and turn into a single json string.
     def sensors_into_message(self):
         self.sensors_dict = {}
         for sensor in self.config.sensors:
-            sensor.get_value()
+            if 'Alarm' in sensor.type:
+                continue
+            value = sensor.get_value()
             if len(sensor.type) == 1:
-                self.add_to_dict(sensor.type[0], sensor.value)
+                if value is None:
+                    self.add_to_dict(sensor.name, sensor.type[0], '')
+                else:
+                    self.add_to_dict(sensor.name, sensor.type[0], value)
             else:
                 for i in range(len(sensor.type)):
-                    if sensor.value is None:
-                        self.add_to_dict(sensor.type[i], None)
+                    if value is None:
+                        self.add_to_dict(sensor.name, sensor.type[i], '')
                     else:
-                        self.add_to_dict(sensor.type[i], sensor.value[i])
+                        self.add_to_dict(sensor.name, sensor.type[i], value[i])
         http_payload = ujson.dumps(self.sensors_dict)
         return http_payload
 
-    def add_to_dict(self, key, value):
+    def add_to_dict(self, name, key, value):
         if key in self.sensors_dict:  # Key already in dictionary
-            key = key + "_" + self.name
+            key = key + "_" + name
         self.sensors_dict[key] = value
 
     # Prints UE static information: IMEI, IMSI, CCID.

@@ -109,7 +109,8 @@ class Configuration():
             if sensor.name == name: # Duplicate name --> do not add sensor
                 log.error("Sensor {0} already exists.".format(name))
                 return False
-        self.sensors.add(Sensor(name, model, pins))
+        sensor = Sensor(name, model, pins)
+        self.sensors.add(sensor)
         log.info("Sensor {0} added successfully.".format(name))
         return True
 
