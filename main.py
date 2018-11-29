@@ -113,21 +113,3 @@ ue.print_info()
 sleep(5)
 
 main()
-
-
-    # Subscribe to attributes updates
-
-    #subscribe_to_server()
-    # Try to open socket and wait
-    #while (True):
-        # Send periodic message over HTTP and listen to upcoming messages
-        #send_sensors_via_http()
-        #wait_for_answer()
-    #ue.add_sensor('T-1', 'Temperature', 0)
-    #ue.add_sensor('Location-1', 'GPS', 0)
-    #ue.add_sensor('Door-LAB1', 'Boolean', 0)
-
-    #send_sensors_via_mqtt()
-    #listen_http(80)
-    #download_config()
-    #update_config()
