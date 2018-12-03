@@ -2,6 +2,7 @@
 # technologies and interfaces. This class will be used to configure
 # the different Interfaces and interact between them.
 import lib.logging as logging
+from lib.wifi import WLAN_AP
 
 log = logging.getLogger("Network")
 
@@ -111,3 +112,32 @@ class Cell():
         else:
             print ("Info: No data to display.")
         return True
+
+# Initialize LTE network
+def initialize_lte(ue):
+    # Check if LTE is configured to be turned on
+    if ue.lte.isconnected() is False:
+        # Create LTE network instance
+        lte_network = Network(ue, "LTE", ue.config.lte_bands)
+        # Make initial configuration to modem
+        ue.p('AT!="setDbgPerm full"')
+        lte_network.configure_network()
+        log.info("LTE network initialized.")
+
+# Initialize WiFi
+def initialize_wifi(ue):
+    # Check if WiFi is configured to be turned on
+    if ue.config.wifi.mode == WLAN_AP:
+        # Create access point for wifi
+        ue.config.wifi.print_wifi()
+    else: # Device needs to connect to a remote wifi gateway
+        # Try to connect to wifi gateway and get ip adress and gw info
+        ue.config.wifi.print_wifi()
+    log.info("WiFi network initialized in mode: " + str(ue.config.wifi.mode))
+
+# Connect device to an LTE system
+def lte_connect_procedure(ue):
+    ue.lte_attach()
+    if ue.lte.isattached():
+        ue.print_network_info()
+        ue.lte_connect(cid=1) # Need to check if it's possible to get a different cid
