@@ -1,11 +1,10 @@
+import re
+import lib.logging as logging
 from network import LTE
 from lib.network_iot import Cell
 from lib.configuration import Configuration
-import re
 from time import sleep, time
-import lib.logging as logging
-import ujson
-import lib.http as http
+from lib.wifi import WLAN_AP
 
 log = logging.getLogger("UE")
 
@@ -23,9 +22,23 @@ class UE():
         self.config.get_config(initial=True)
         self.alarms = False
 
+    # Used to check connectivity status of the ue to an external destination
+    def isconnected(self):
+        if self.config.lte is True: # LTE is configured --> primary connection
+            if self.lte.isconnected() is True: # LTE connected
+                return True
+            else:
+                return False
+        # Check if wifi is configured on Access-Point mode
+        elif self.config.wifi is not None and self.config.wifi.mode == WLAN_AP:
+            # Check connectivity to remote server
+            pass
+        else:
+            return False
+
     # Function used to attach and dettach from an LTE network
     # Use retries for a non-blocking attach
-    def attach(self, state=True, retries=30):
+    def lte_attach(self, state=True, retries=30):
         if state is False:
             self.lte.dettach()
             log.info('Dettached from network')
@@ -59,7 +72,7 @@ class UE():
 
     # Function used to connect and disconnect from an LTE network
     # Use retries for a non-blocking connect
-    def connect(self, state=True, retries=30, cid=1):
+    def lte_connect(self, state=True, retries=30, cid=1):
         if self.lte.isattached() is False:
             log.warning("Cannot connect/disconnect to/from network because UE is not attached.")
             return False
@@ -124,54 +137,24 @@ class UE():
             log.exception("Could not extract IMSI from SIM card.")
         return self.sim
 
-    def send_sensors_via_http(self, alarm=False, data=False):
-        if alarm is not False:
-            message = str(data)
-        else:
-            message = self.sensors_into_message()
-        type = "POST"
-        content_type = "application/json"
-        try:
-            path = http.TELEMETRY_PATH.replace('token', self.config.token)
-        except AttributeError as e:
-            log.exception()
-
-        packet = self.config.http.http_to_packet(type, path, content_type, message)
-        if packet is not False:
-            self.config.http.send_message(packet)
-            #wait_for_answer
-                #if ack good
-                #else if 400 bad http request
-                #else if 401 bad token
-                #  else if 404 resource not found
-        else:
-            log.warning("Missing vital information for an HTTP message: " + packet)
-
-    # Take a list of sensor objects and turn into a single json string.
-    def sensors_into_message(self):
-        self.sensors_dict = {}
-        for sensor in self.config.sensors:
-            if 'Alarm' in sensor.type:
-                continue
-            value = sensor.get_value()
-            if len(sensor.type) == 1:
-                if value is None:
-                    self.add_to_dict(sensor.name, sensor.type[0], '')
-                else:
-                    self.add_to_dict(sensor.name, sensor.type[0], value)
-            else:
-                for i in range(len(sensor.type)):
-                    if value is None:
-                        self.add_to_dict(sensor.name, sensor.type[i], '')
-                    else:
-                        self.add_to_dict(sensor.name, sensor.type[i], value[i])
-        http_payload = ujson.dumps(self.sensors_dict)
-        return http_payload
-
-    def add_to_dict(self, name, key, value):
+    # Add (key, value) to sensors dictionary
+    def add_sensor_to_dict(self, name, key, value):
         if key in self.sensors_dict:  # Key already in dictionary
             key = key + "_" + name
         self.sensors_dict[key] = value
+
+    # Return True if there is an "alarm" sensor configured
+    def has_alarms(self):
+        for sensor in self.config.sensors:
+            if "Alarm" in sensor.type:
+                return True
+        return False
+
+    # Sensor alarms must be initiated
+    def start_sensors():
+        for sensor in ue.config.sensors:
+            if "Alarm" in sensor.type:
+                sensor.start_sensor(self)
 
     # Prints UE static information: IMEI, IMSI, CCID.
     def print_info(self):

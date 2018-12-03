@@ -5,7 +5,8 @@ import lib.logging as logging
 log = logging.getLogger("HTTP")
 
 TELEMETRY_PATH = '/api/v1/token/telemetry'
-SUBSCRIBE_PATH = '/api/v1/token/attributes/updates'
+SUBSCRIBE_PATH_HTTP = '/api/v1/token/attributes/updates'
+SUBSCRIBE_PATH_MQTT = '/api/v1/token/attributes/response/+'
 ATTRIBUTES_PATH = '/api/v1/token/attributes'
 
 class HTTP():
@@ -53,14 +54,7 @@ class HTTP():
 
 # Listens on a specific port for HTTP messages and returns a simple "page"
 def listen_http(port):
-    html = """<!DOCTYPE html>
-    <html>
-        <head> <title>ESP8266 Pins</title> </head>
-        <body> <h1>ESP8266 Pins</h1>
-            <table border="1"> <tr><th>Pin</th><th>Value</th></tr> %s </table>
-        </body>
-    </html>
-    """
+    html = "<!DOCTYPE html>"
     addr = socket.getaddrinfo('0.0.0.0', port)[0][-1]
     s = socket.socket()
     s.bind(addr)
