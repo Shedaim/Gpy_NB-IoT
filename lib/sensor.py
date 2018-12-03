@@ -48,7 +48,7 @@ class Sensor():
             value = [result.temperature, result.humidity]
             while value is None:
                 time.sleep(0.2)
-            log.info("got sensor values: " + str(value))
+            log.info("Reading sensor {0} values: {1}".format(self.name, str(value)))
             return value
         else:
             log.warning("Could not extract data from sensor: " + self.name)

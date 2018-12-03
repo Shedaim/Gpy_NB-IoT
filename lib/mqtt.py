@@ -5,6 +5,11 @@ import lib.logging as logging
 
 log = logging.getLogger("MQTT")
 
+TELEMETRY_PATH = 'v1/devices/me/telemetry'
+SUBSCRIBE_PATH = 'v1/devices/me/attributes/response/+'
+ATTRIBUTES_PATH = 'v1/devices/me/attributes'
+REQUEST_ATTR_PATH = 'v1/devices/me/attributes/request/'
+
 class MQTTException(Exception):
     pass
 
@@ -109,7 +114,7 @@ class MQTTClient:
             sz >>= 7
             i += 1
         pkt[i] = sz
-        print(hex(len(pkt)), hexlify(pkt, ":"))
+        #print(hex(len(pkt)), hexlify(pkt, ":"))
         self.sock.write(pkt, i + 1)
         self._send_str(topic)
         if qos > 0:
@@ -132,17 +137,18 @@ class MQTTClient:
             assert 0
 
     def subscribe(self, topic, qos=0):
+        #log.info("Started subscribe")
         assert self.cb is not None, "Subscribe callback is not set"
         pkt = bytearray(b"\x82\0\0\0")
         self.pid += 1
         struct.pack_into("!BH", pkt, 1, 2 + 2 + len(topic) + 1, self.pid)
-        #print(hex(len(pkt)), hexlify(pkt, ":"))
         self.sock.write(pkt)
         self._send_str(topic)
         self.sock.write(qos.to_bytes(1, "little"))
         while 1:
             op = self.wait_msg()
-            if op == 0x90:
+            #print (hex(op))
+            if op & 0xf0 == 0x90:
                 resp = self.sock.read(4)
                 #print(resp)
                 assert resp[1] == pkt[2] and resp[2] == pkt[3]

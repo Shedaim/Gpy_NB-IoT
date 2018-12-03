@@ -9,7 +9,7 @@ log = logging.getLogger("Main")
 
 def wait_for_answer():
     ue.config.http.open_socket()
-    ue.config.http.s.settimeout(ue.config.sleep_timer)
+    ue.config.http.s.settimeout(ue.config.upload_frequency)
     response = ''
     while True:
         try:
@@ -25,14 +25,11 @@ def wait_for_answer():
     ue.config.http.s.close()
     return True
 
-def send_messages_while_connected(protocol):
-    while(ue.isconnected() is True):
-        # Start sending sensors telemetry
-        if protocol == "HTTP":
-            messages.send_sensors_via_http(ue)
-        elif protocol == "MQTT":
-            messages.send_sensors_via_mqtt(ue)
-        sleep(ue.config.sleep_timer)
+def _callback_message_to_config(topic, message):
+    message = message.decode('UTF-8')
+    topic = topic.decode('UTF-8')
+    log.info("Recieved message {1} to topic {0}".format(topic, message))
+    ue.config.turn_message_to_config(message)
 
 def main():
     # Initial configuration
@@ -55,9 +52,26 @@ def main():
 
     # Send data while connected to a remote destination
     if ue.config.http is not None: # Send messages via http, untill reconfiguration
-        send_messages_while_connected("HTTP")
+        pass
     elif ue.config.mqtt is not None: # Send messages via mqtt, untill reconfiguration
-        send_messages_while_connected("MQTT")
+        ue.config.mqtt.set_callback(_callback_message_to_config)
+        ue.config.mqtt.connect()
+        messages.subscribe_to_server(ue, _type='initial')
+        messages.subscribe_to_server(ue, _type='attribute')
+    messages.send_attribute(ue, str({'Name':ue.config.deviceName}))
+    messages.request_attributes(ue)
+    ue.config.mqtt.wait_msg()
+    messages.request_attributes(ue)
+    ue.config.mqtt.wait_msg()
+    while (ue.isconnected() is True):
+        # Start sending sensors telemetry
+        if ue.config.mqtt is not None: # MQTT == primary protocol
+            messages.send_sensors_via_mqtt(ue)
+        elif ue.config.http is not None:
+            messages.send_sensors_via_http(ue)
+        ue.config.mqtt.check_msg()
+        sleep(ue.config.uploadFrequency)
+
 
 ##########################################
 ###########    BEGGINING    ##############
@@ -67,5 +81,4 @@ ue = UE()
 ue.print_info()
 # Wait untill initial configuration has been updated
 sleep(2)
-
 main()
