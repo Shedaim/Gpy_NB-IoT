@@ -2,6 +2,7 @@ import time
 import lib.logging as logging
 from lib.dth import DTH
 from machine import Pin
+import messages
 
 log = logging.getLogger("Sensor")
 
@@ -61,7 +62,10 @@ class Sensor():
             value = 0
         data = {'_'.join(['Alarm', self.name]):value}
         log.info("Door state has changed. Sending alarm.")
-        self.ue.send_sensors_via_http(alarm=True, data=data)
+        if self.ue.config.mqtt is not None:
+            messages.send_sensors_via_mqtt(self.ue, alarm=True, data=data)
+        elif self.ue.config.http is not None:
+            messages.send_sensors_via_http(self.ue, alarm=True, data=data)
 
     def door_sensor_read_data(self):
         p_Data = Pin(self.pins[2], mode=Pin.IN, pull=Pin.PULL_UP)

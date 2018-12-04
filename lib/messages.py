@@ -6,8 +6,11 @@ import lib.mqtt as mqtt
 log = logging.getLogger("Messages")
 
 # Send sensors data through MQTT configuration
-def send_sensors_via_mqtt(ue):
-    mqtt_message = sensors_into_message(ue)
+def send_sensors_via_mqtt(ue, alarm=False, data=False):
+    if alarm is not False:
+        mqtt_message = str(data)
+    else:
+        mqtt_message = sensors_into_message(ue)
     path = mqtt.TELEMETRY_PATH
     ue.config.mqtt.publish(path, mqtt_message)
     log.info("Sent message: {0} to topic: {1} via MQTT".format(mqtt_message, path))

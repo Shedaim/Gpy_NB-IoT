@@ -151,8 +151,8 @@ class UE():
         return False
 
     # Sensor alarms must be initiated
-    def start_sensors():
-        for sensor in ue.config.sensors:
+    def start_sensors(self):
+        for sensor in self.config.sensors:
             if "Alarm" in sensor.type:
                 sensor.start_sensor(self)
 

@@ -56,7 +56,7 @@ class Configuration():
             else:
                 self.value_to_config(key, dictionary[key])
 
-    def turn_keys_to_list(self, keys_string):
+    def list_string_to_list(self, keys_string):
         assert keys_string[0] == '[' and keys_string[-1] == ']', "Keys recieved are not a list"
         keys_string = keys_string[1:-1]
         return keys_string.split(',')
@@ -82,12 +82,12 @@ class Configuration():
         elif key == "Sensors":
             for sensor in val:
                 self.config_sensor(sensor.split(','))
-        elif key =='sharedKeys':
-            self.sharedKeys = self.turn_keys_to_list(val)
+        elif key == 'sharedKeys':
+            self.sharedKeys = self.list_string_to_list(val)
         elif key == 'clientKeys':
-            self.clientKeys = self.turn_keys_to_list(val)
+            self.clientKeys = self.list_string_to_list(val)
         elif key == 'serverKeys':
-            self.serverKeys = self.turn_keys_to_list(val)
+            self.serverKeys = self.list_string_to_list(val)
         else:
             log.warning("Key '{0}' does not match any configure key.".fromat(key))
 

@@ -50,7 +50,6 @@ def main():
 
     if ue.has_alarms() is True:
         ue.start_sensors()
-        send_alarm_attribute()
 
     # Send data while connected to a remote destination
     if ue.config.http is not None: # Send messages via http, untill reconfiguration
