@@ -4,21 +4,25 @@ import ujson
 import lib.http as http
 from lib.sensor import Sensor
 import lib.wifi as wifi
-import lib.mqtt as mqtt
 
 log = logging.getLogger("Config")
 
 class Configuration():
 
     def __init__(self):
-        self.name = "Pycom-Default"
-        self.sleep_timer = None
+        self.deviceName = "Pycom-Default"
+        self.uploadFrequency = None
         self.lte = None
         self.wifi = None
         self.bt = None
-        self.remote_server = list()
+        self.remoteServer = list()
         self.sensors = set()
         self.http = None
+        self.mqtt = None
+        self.token = None
+        self.sharedKeys = ['sharedKeys']
+        self.clientKeys = []
+        self.serverKeys = []
 
     # Create HTTP message to download configurations or read from saved file
     def get_config(self, initial=False):
@@ -26,8 +30,8 @@ class Configuration():
             with open('Initial_configuration.json', 'r') as f:
                 result = f.read()
         else:
-            full_path = http.REMOTE_SERVER_PATH + self.name + "/config"
-            result = http.http_msg('', type="GET", path=full_path)
+            # NEED to Get all attributes
+            pass
         log.info('Read initial configuration: ' + result)
         self.turn_message_to_config(result)
 
@@ -38,28 +42,54 @@ class Configuration():
     # Convert dictionary to specific object configurations
     def turn_message_to_config(self, message):
         dictionary = ujson.loads(message)
-        for val in dictionary:
-            if val == "Name":
-                self.name = dictionary[val]
-            elif val == "Sleep_timer":
-                self.sleep_timer = int(dictionary[val])
-                # NEED to add implementation of sleep (eDRX?)
-            elif val == "Remote_server":
-                # Data in the form 'Protocol:IP:port:path'
-                self.config_remote(dictionary[val].split(':'))
-            elif val == "LTE":
-                self.lte = True
-                self.lte_bands = dictionary[val]
-            elif val == "WIFI":
-                self.config_wifi(dictionary[val])
-            elif val == "BT":
-                self.bt = True
-                pass # NEED to parse variables.
-            elif val == "Sensors":
-                for sensor in dictionary[val]:
-                    self.config_sensor(sensor.split(','))
-            elif val == "Token":
-                self.token = dictionary[val]
+        if self.token is None:
+            try:
+                self.token = dictionary['Token']
+                del dictionary['Token']
+            except AttributeError:
+                pass
+        for key in dictionary:
+            if key == "shared": # Got shared attributes from server
+                for attr in dictionary[key]: # go over attributes in response (dict inside a dict)
+                    assert isinstance(dictionary[key],dict), "shared attributes recieved not as a dictionary"
+                    self.value_to_config(attr, dictionary[key][attr])
+            else:
+                self.value_to_config(key, dictionary[key])
+
+    def turn_keys_to_list(self, keys_string):
+        assert keys_string[0] == '[' and keys_string[-1] == ']', "Keys recieved are not a list"
+        keys_string = keys_string[1:-1]
+        return keys_string.split(',')
+
+    def value_to_config(self, key, val):
+        log.info("Updating attribute '{0}' to value '{1}'".format(key, val))
+        if key == "deviceName":
+            self.deviceName = val
+        elif key == "uploadFrequency":
+            self.uploadFrequency = int(val)
+            # NEED to add implementation of sleep (eDRX?)
+        elif key == "remoteServer":
+            # Data in the form 'Protocol:IP:port:path'
+            self.config_remote(val.split(':'))
+        elif key == "LTE":
+            self.lte = True
+            self.lte_bands = val
+        elif key == "WIFI":
+            self.config_wifi(val)
+        elif key == "BT":
+            self.bt = True
+            pass # NEED to parse variables.
+        elif key == "Sensors":
+            for sensor in val:
+                self.config_sensor(sensor.split(','))
+        elif key =='sharedKeys':
+            self.sharedKeys = self.turn_keys_to_list(val)
+        elif key == 'clientKeys':
+            self.clientKeys = self.turn_keys_to_list(val)
+        elif key == 'serverKeys':
+            self.serverKeys = self.turn_keys_to_list(val)
+        else:
+            log.warning("Key '{0}' does not match any configure key.".fromat(key))
 
     # Config the Wifi module
     def config_wifi(self, data):
@@ -77,13 +107,23 @@ class Configuration():
 
     # Config the remote server details given configuration data
     def config_remote(self, data):
-        self.remote_server.append(data)
+        self.remoteServer.append(data)
         if data[0] == "HTTP":
             self.http = http.HTTP()
             self.http.host = data[1]
             self.http.port = int(data[2])
         elif data[0] == "MQTT":
-            self.mqtt = mqtt.MQTTClient(self.name, data[1], int(data[2]))
+            import lib.mqtt as mqtt
+            if self.mqtt is None: # First time configuration
+                self.mqtt = mqtt.MQTTClient(self.token, data[1], int(data[2]), self.token, self.token)
+            else:
+                import socket
+                import messages
+                self.mqtt.disconnect()
+                self.mqtt.addr = socket.getaddrinfo(data[1], int(data[2]))[0][-1]
+                self.mqtt.connect()
+                messages.subscribe_to_server(self, _type='initial')
+                messages.subscribe_to_server(self, _type='attribute')
 
     # Config a sensor given it's configuration data
     def config_sensor(self, data):
@@ -127,12 +167,12 @@ class Configuration():
 
     # Print configuration variables and it's values
     def print_config(self):
-        if self.name is not None:
-            print ("Name: " + self.name)
-        if self.sleep_timer is not None:
-            print ("Sleep timer (seconds): " + str(self.sleep_timer))
-        if self.remote_server is not None:
-            for server in self.remote_server:
+        if self.deviceName is not None:
+            print ("Name: " + self.deviceName)
+        if self.uploadFrequency is not None:
+            print ("Sleep timer (seconds): " + str(self.uploadFrequency))
+        if self.remoteServer is not None:
+            for server in self.remoteServer:
                 print ("Remote server (Protocol:IPaddress:Port:path): " + str(server))
         if self.lte is True:
             print ("LTE bands: " + str(self.lte_bands))

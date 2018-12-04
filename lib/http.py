@@ -6,8 +6,8 @@ log = logging.getLogger("HTTP")
 
 TELEMETRY_PATH = '/api/v1/token/telemetry'
 SUBSCRIBE_PATH_HTTP = '/api/v1/token/attributes/updates'
-SUBSCRIBE_PATH_MQTT = '/api/v1/token/attributes/response/+'
 ATTRIBUTES_PATH = '/api/v1/token/attributes'
+REQUEST_ATTR_PATH = '/api/v1/token/attributes'
 
 class HTTP():
 

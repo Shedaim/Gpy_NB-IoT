@@ -67,7 +67,7 @@ class UE():
                 log.info('Attach procedure ended successfully.')
                 return True
         print('')
-        log.info('Failed to attach after {0} retries".format(retries)')
+        log.info("Failed to attach after {0} retries".format(retries))
         return False
 
     # Function used to connect and disconnect from an LTE network
