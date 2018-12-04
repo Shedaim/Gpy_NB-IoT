@@ -56,18 +56,18 @@ def sensors_into_message(ue):
     return http_payload
 
 #Subscribe to a server's action (e.g the possibility to recieve attribute updates)
-def subscribe_to_server(ue, _type='initial'):
+def subscribe_to_server(config, _type='initial'):
     if _type == 'initial':
         path = mqtt.SUBSCRIBE_PATH
     else:
         path = mqtt.ATTRIBUTES_PATH
-    if ue.config.mqtt is not None: # MQTT == primary protocol
-        ue.config.mqtt.subscribe(path) # NEED work on what the server expects
+    if config.mqtt is not None: # MQTT == primary protocol
+        config.mqtt.subscribe(path) # NEED work on what the server expects
     elif ue.config.http is not None:
-        path = token_into_path(ue.config.token, http.SUBSCRIBE_PATH)
-        packet = ue.config.http.http_to_packet("GET", path, None, None)
+        path = token_into_path(config.token, http.SUBSCRIBE_PATH)
+        packet = config.http.http_to_packet("GET", path, None, None)
         if packet is not False: # Send message
-            ue.config.http.send_message(packet)
+            config.http.send_message(packet)
         else:
             log.warning("Missing vital information for an HTTP message: " + packet)
 
@@ -84,7 +84,7 @@ def send_attribute(ue, attr):
     else:
         log.warning("Missing vital information for an HTTP message: " + packet)
 
-# Request an attribute update from the server
+# Request an attribute update from the server  (Used primarily as initial configuration)
 def request_attributes(ue):
     json_obj = {}
     # check if keys are configured, request configured keys

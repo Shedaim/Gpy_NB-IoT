@@ -4,6 +4,7 @@ import lib.logging as logging
 from lib.wifi import WLAN_AP
 import lib.messages as messages
 from lib.network_iot import initialize_wifi, initialize_lte, lte_connect_procedure
+from lib.mqtt import MQTTException
 
 log = logging.getLogger("Main")
 
@@ -30,6 +31,7 @@ def _callback_message_to_config(topic, message):
     topic = topic.decode('UTF-8')
     log.info("Recieved message {1} to topic {0}".format(topic, message))
     ue.config.turn_message_to_config(message)
+    ue.config.mqtt.check_msg() # We successfully recieved one message, check if another is waiting.
 
 def main():
     # Initial configuration
@@ -56,21 +58,25 @@ def main():
     elif ue.config.mqtt is not None: # Send messages via mqtt, untill reconfiguration
         ue.config.mqtt.set_callback(_callback_message_to_config)
         ue.config.mqtt.connect()
-        messages.subscribe_to_server(ue, _type='initial')
-        messages.subscribe_to_server(ue, _type='attribute')
+        messages.subscribe_to_server(ue.config, _type='initial')
+        messages.subscribe_to_server(ue.config, _type='attribute')
     messages.send_attribute(ue, str({'Name':ue.config.deviceName}))
-    messages.request_attributes(ue)
+    messages.request_attributes(ue) # Initial configuration - ask for shared attributes
     ue.config.mqtt.wait_msg()
-    messages.request_attributes(ue)
+    messages.request_attributes(ue) # Get shared attributes for initial configuration
     ue.config.mqtt.wait_msg()
-    while (ue.isconnected() is True):
-        # Start sending sensors telemetry
-        if ue.config.mqtt is not None: # MQTT == primary protocol
-            messages.send_sensors_via_mqtt(ue)
-        elif ue.config.http is not None:
-            messages.send_sensors_via_http(ue)
-        ue.config.mqtt.check_msg()
-        sleep(ue.config.uploadFrequency)
+    while True:
+        if (ue.isconnected() is True):
+            # Send sensors telemetry
+            if ue.config.mqtt is not None: # MQTT == primary protocol
+                messages.send_sensors_via_mqtt(ue)
+            elif ue.config.http is not None:
+                messages.send_sensors_via_http(ue)
+            ue.config.mqtt.check_msg()
+            sleep(ue.config.uploadFrequency)
+        else:
+            # reconnect
+            pass
 
 
 ##########################################
