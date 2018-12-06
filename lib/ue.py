@@ -3,12 +3,13 @@ import lib.logging as logging
 from network import LTE
 from lib.network_iot import Cell
 from lib.configuration import Configuration
-from time import sleep, time
+from time import sleep
 from lib.wifi import WLAN_AP
 
 log = logging.getLogger("UE")
 
-class UE():
+
+class UE:
 
     def __init__(self):
         self.lte = LTE()
@@ -21,11 +22,12 @@ class UE():
         self.config = Configuration()
         self.config.get_config(initial=True)
         self.alarms = False
+        self.sensors_dict = None
 
     # Used to check connectivity status of the ue to an external destination
     def isconnected(self):
-        if self.config.lte is True: # LTE is configured --> primary connection
-            if self.lte.isconnected() is True: # LTE connected
+        if self.config.lte:  # LTE is configured --> primary connection
+            if self.lte.isconnected() is True:  # LTE connected
                 return True
             else:
                 return False
@@ -49,18 +51,18 @@ class UE():
         print("Trying to attach.", end='')
         retries_left = retries
         self.lte.attach()
-        while(retries_left > 0):
+        while retries_left > 0:
             print('.', end='')
             retries_left = retries_left - 1
-            if self.lte.isattached() is False:
+            if not self.lte.isattached():
                 sleep(2)
-            else: # lte.isattached() returned True
+            else:  # lte.isattached() returned True
                 # After successful attach, it's necessary to wait-
-                # untill cell details are available.
+                # until cell details are available.
                 print('')
                 log.info('Device attached successfully.')
                 print('\nGetting network info.', end='')
-                while(self.cell.get_details() is False and self.lte.isattached() is True):
+                while not self.cell.get_details() and self.lte.isattached():  # Keep trying to get network info
                     print('.', end='')
                     sleep(2)
                 print('')
@@ -73,28 +75,28 @@ class UE():
     # Function used to connect and disconnect from an LTE network
     # Use retries for a non-blocking connect
     def lte_connect(self, state=True, retries=30, cid=1):
-        if self.lte.isattached() is False:
+        if not self.lte.isattached():
             log.warning("Cannot connect/disconnect to/from network because UE is not attached.")
             return False
         # Disconnect if state=False
-        if state is False:
+        if not state:
             self.lte.disconnect()
             log.info("Disconnected from network.")
             return False
-        # Conenct if state=True, but first check if already connected
-        if self.lte.isconnected() is True:
+        # Connect if state=True, but first check if already connected
+        if self.lte.isconnected():
             log.info("Device is already connected.")
             return True
         print("Info: Trying to connect.", end='')
         retries_left = retries
-        if self.lte.isattached() is True:
+        if self.lte.isattached():
             self.lte.connect()
-        while(retries_left > 0):
+        while retries_left > 0:
             print('.', end='')
             retries_left = retries_left - 1
-            if self.lte.isconnected() is False:
+            if not self.lte.isconnected():
                 sleep(2)
-            else: # lte.isconnected() returned True
+            else:  # lte.isconnected() returned True
                 print('')
                 log.info("Connected successfully.")
                 return True
@@ -102,9 +104,7 @@ class UE():
         log.info("Failed to connect after {0} retries".format(retries))
         return False
 
-
-    # Create a list containing important data - Used if
-    # data is needed to be sent to server/database
+    # Create a list containing important data - Used if data is needed to be sent to server/database
     def create_info_list(self):
         info_list = [self.imei, self.iccid, self.imsi, self.ip]
         info_list.extend(self.cell.create_info_list())
@@ -159,28 +159,26 @@ class UE():
     # Prints UE static information: IMEI, IMSI, CCID.
     def print_info(self):
         print("---------------UE information----------------")
-        print ("IMEI: " + self.imei)
-        if self.get_sim_details() is not False:
+        print("IMEI: " + self.imei)
+        if self.get_sim_details():  # SIM card was found
             try:
-                print ("ICCID: " + self.iccid)
-                print ("IMSI: " + self.imsi)
+                print("ICCID: " + self.iccid)
+                print("IMSI: " + self.imsi)
             except TypeError:
                 log.exception("Error while printing SIM details.")
         print('---------------------------------------------')
 
-    # Prints dynamic network infromation: IP address, Serving cell -
+    # Prints dynamic network information: IP address, Serving cell -
     # get_details (cell ID, TaC, RSRP, etc.)
     def print_network_info(self):
         print("---------------Network information----------------")
-        if self.lte.isattached() is False:
+        if not self.lte.isattached():
             log.warning("not in attach mode, cannot fetch serving network data.")
-            return False
-        if self.cell.get_details() is True:
+        if self.cell.get_details():
             if self.get_ip() is not None:
-                print ("IP address: " + self.ip)
+                print("IP address: " + self.ip)
             self.cell.print_all()
             print('--------------------------------------------------')
-            return True
 
     # Print all available sensors configured
     def print_sensors_info(self):
@@ -192,13 +190,13 @@ class UE():
         self.p('AT!="IP::ping {0}"'.format(ip))
 
     # Helper function to easily execute AT-commands and print it's contents.
-    # Disconnects and connectes to LTE network to become a non-blocking function.
+    # Disconnects and connects to LTE network to become a non-blocking function.
     def p(self, cmd, delay=0):
         was_connected = self.lte.isconnected()
-        if was_connected is True:
+        if was_connected:
             self.lte.disconnect()
         response = self.lte.send_at_cmd(cmd, delay=delay)
-        for i in [x for x in response.split('\r\n') if x]:
-            print (i)
-        if was_connected is True and self.lte.isconnected() is False:
+        for i in [x for x in response.split('\r\n') if x]:  # take all lines of the response excluding empty lines
+            print(i)
+        if was_connected:
             self.lte.connect()

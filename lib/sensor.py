@@ -2,7 +2,7 @@ import time
 import lib.logging as logging
 from lib.dth import DTH
 from machine import Pin
-import messages
+import lib.messages as messages
 
 log = logging.getLogger("Sensor")
 
@@ -13,16 +13,22 @@ DTH11 = 'dth11'
 # REED - Reed switch for Door opening - Requires Ground, VCC and data Pins
 REED = 'reed'
 
-SENSOR_MODELS = {DTH11:['Temperature','Humidity'], REED:['Alarm'], INTERNAL_CPU_TEMPERATURE:['Temperature']}
+SENSOR_MODELS = {DTH11: ['Temperature', 'Humidity'],
+                 REED: ['Alarm'],
+                 INTERNAL_CPU_TEMPERATURE: ['Temperature']
+                 }
 
-class Sensor():
 
-    def __init__(self, name, model, pins=0):
+class Sensor:
+
+    def __init__(self, name, model, pins: []):
         self.name = name
         self.model = model
         self.pins = pins
         self.value = None
+        self.type = None
         self.get_types()
+        self.ue = None
 
     def get_types(self):
         try:
@@ -31,18 +37,18 @@ class Sensor():
             log.exception("Sensor model not found.")
 
     def print_info(self):
-        print ("Name: {}, Type: {}, Model: {}, Pins: {}".format(self.name, self.type, self.model, self.pins))
+        print("Name: {}, Type: {}, Model: {}, Pins: {}".format(self.name, self.type, self.model, self.pins))
 
     def power_pin_set(self):
-        p_VCC = Pin(self.pins[1], mode=Pin.OUT)
-        p_VCC.value(1)
+        p_vcc = Pin(self.pins[1], mode=Pin.OUT)
+        p_vcc.value(1)
 
     def ground_pin_set(self):
-        p_GND = Pin(self.pins[0], mode=Pin.OUT)
-        p_GND.value(0)
+        p_gnd = Pin(self.pins[0], mode=Pin.OUT)
+        p_gnd.value(0)
 
     def temperature_sensor_read_data(self):
-        th = DTH(Pin(self.pins[2], mode=Pin.OPEN_DRAIN),0)
+        th = DTH(Pin(self.pins[2], mode=Pin.OPEN_DRAIN), 0)
         time.sleep(1)
         result = th.read()
         if result.is_valid():
@@ -60,7 +66,7 @@ class Sensor():
             value = 1
         else:
             value = 0
-        data = {'_'.join(['Alarm', self.name]):value}
+        data = {'_'.join(['Alarm', self.name]): value}
         log.info("Door state has changed. Sending alarm.")
         if self.ue.config.mqtt is not None:
             messages.send_sensors_via_mqtt(self.ue, alarm=True, data=data)
@@ -76,7 +82,7 @@ class Sensor():
             self.power_pin_set()
             self.ground_pin_set()
             self.value = self.temperature_sensor_read_data()
-        elif self.model == INTERNAL_CPU_TEMPERATURE: # Internal value required
+        elif self.model == INTERNAL_CPU_TEMPERATURE:  # Internal value required
             import machine
             self.value = machine.temperature()
         elif self.model == REED:

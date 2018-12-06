@@ -10,8 +10,10 @@ SUBSCRIBE_PATH = 'v1/devices/me/attributes/response/+'
 ATTRIBUTES_PATH = 'v1/devices/me/attributes'
 REQUEST_ATTR_PATH = 'v1/devices/me/attributes/request/'
 
+
 class MQTTException(Exception):
     pass
+
 
 class MQTTClient:
 
@@ -80,7 +82,7 @@ class MQTTClient:
             msg[9] |= 0x4 | (self.lw_qos & 0x1) << 3 | (self.lw_qos & 0x2) << 3
             msg[9] |= self.lw_retain << 5
         self.sock.write(msg)
-        #print(hex(len(msg)), hexlify(msg, ":"))
+        # print(hex(len(msg)), hexlify(msg, ":"))
         self._send_str(self.client_id)
         if self.lw_topic:
             self._send_str(self.lw_topic)
@@ -114,7 +116,7 @@ class MQTTClient:
             sz >>= 7
             i += 1
         pkt[i] = sz
-        #print(hex(len(pkt)), hexlify(pkt, ":"))
+        # print(hex(len(pkt)), hexlify(pkt, ":"))
         self.sock.write(pkt, i + 1)
         self._send_str(topic)
         if qos > 0:
@@ -137,7 +139,6 @@ class MQTTClient:
             assert 0
 
     def subscribe(self, topic, qos=0):
-        #log.info("Started subscribe")
         assert self.cb is not None, "Subscribe callback is not set"
         pkt = bytearray(b"\x82\0\0\0")
         self.pid += 1
@@ -147,10 +148,10 @@ class MQTTClient:
         self.sock.write(qos.to_bytes(1, "little"))
         while 1:
             op = self.wait_msg()
-            #print (hex(op))
+            # print (hex(op))
             if op & 0xf0 == 0x90:
                 resp = self.sock.read(4)
-                #print(resp)
+                # print(resp)
                 assert resp[1] == pkt[2] and resp[2] == pkt[3]
                 if resp[3] == 0x80:
                     raise MQTTException(resp[3])
