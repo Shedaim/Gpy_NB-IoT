@@ -6,5 +6,5 @@
   "WIFI":[2,"PycomWifi",
   "p@ssw0rd",11,0,"172.17.60.2","172.17.60.2"],
   "remoteServer":"MQTT:172.17.60.2:1883",
-  "Sensors":["OnPycom_Temp,cpu_temp,0","DTH11,dth11,G6,G7,G8"]
+  "Sensors":["OnPycom_Temp,cpu_temp,0", "DTH11,dth11,G6,G7,G8"]
 }

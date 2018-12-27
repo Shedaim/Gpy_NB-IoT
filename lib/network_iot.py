@@ -3,6 +3,7 @@
 # the different Interfaces and interact between them.
 import lib.logging as logging
 from lib.wifi import WLAN_AP
+import lib.messages as messages
 
 log = logging.getLogger("Network")
 
@@ -139,6 +140,24 @@ def initialize_wifi(ue):
         # Try to connect to wifi gateway and get ip adress and gw info
         ue.config.wifi.print_wifi()
     log.info("WiFi network initialized in mode: " + str(ue.config.wifi.mode))
+
+
+# Initialize MQTT
+def initialize_mqtt(ue, first_call=True):
+    try:
+        ue.config.mqtt.connect()
+        messages.subscribe_to_server(ue.config, _type='initial')
+        messages.subscribe_to_server(ue.config, _type='attribute')
+        if first_call:
+            messages.send_attribute(ue, str({'IMEI':ue.imei}))
+            messages.request_attributes(ue)  # Initial configuration - ask for shared attributes
+            ue.config.mqtt.wait_msg()
+            messages.request_attributes(ue)  # Get shared attributes for initial configuration
+            ue.config.mqtt.wait_msg()
+        return True
+    except OSError:
+        log.exception("Could not connect to MQTT server.")
+        return False
 
 
 # Connect device to an LTE system

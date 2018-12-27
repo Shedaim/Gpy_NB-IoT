@@ -2,7 +2,7 @@ from time import sleep
 from lib.ue import UE
 import lib.logging as logging
 import lib.messages as messages
-from lib.network_iot import initialize_wifi, initialize_lte, lte_connect_procedure
+from lib.network_iot import initialize_wifi, initialize_lte, lte_connect_procedure, initialize_mqtt
 
 log = logging.getLogger("Main")
 
@@ -39,19 +39,22 @@ def main():
         pass
     elif ue.config.mqtt is not None:  # Send messages via mqtt, untill reconfiguration
         ue.config.mqtt.set_callback(_callback_message_to_config)
-        ue.config.mqtt.connect()
-        messages.subscribe_to_server(ue.config, _type='initial')
-        messages.subscribe_to_server(ue.config, _type='attribute')
-    messages.send_attribute(ue, str({'Name':ue.config.deviceName}))
-    messages.request_attributes(ue)  # Initial configuration - ask for shared attributes
-    ue.config.mqtt.wait_msg()
-    messages.request_attributes(ue)  # Get shared attributes for initial configuration
-    ue.config.mqtt.wait_msg()
+        while initialize_mqtt(ue) is False:
+            if ue.isconnected() is False:
+                lte_connect_procedure(ue)
+                sleep(1)
+
+    # Everything has been initialized
     while True:
         if ue.isconnected() is True:
             # Send sensors telemetry
             if ue.config.mqtt is not None:  # MQTT == primary protocol
-                messages.send_sensors_via_mqtt(ue)
+                try:
+                    messages.send_sensors_via_mqtt(ue)
+                except OSError:
+                    log.exception("Error sending MQTT message to server.")
+                    initialize_mqtt(ue, first_call=False)
+                    continue
             elif ue.config.http is not None:
                 messages.send_sensors_via_http(ue)
             ue.config.mqtt.check_msg()
@@ -59,7 +62,6 @@ def main():
         else:
             # NEED to check LTE reconnection
             lte_connect_procedure(ue)
-            pass
 
 
 # Initialize ue object and print it's data
