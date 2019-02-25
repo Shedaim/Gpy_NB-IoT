@@ -1,8 +1,11 @@
 import time
 import lib.logging as logging
-from lib.dth import DTH
-from machine import Pin
 import lib.messages as messages
+from sensors.dth import DTH
+from sensors.pyb_gpio_lcd import GpioLcd
+from machine import Pin
+
+
 
 log = logging.getLogger("Sensor")
 
@@ -12,10 +15,15 @@ INTERNAL_CPU_TEMPERATURE = "cpu_temp"
 DTH11 = 'dth11'
 # REED - Reed switch for Door opening - Requires Ground, VCC and data Pins
 REED = 'reed'
+# LCD display - Show message sent by remote server
+LCD_1602a = '1602a'
+VIBRATOR = 'vibrator'
 
 SENSOR_MODELS = {DTH11: ['Temperature', 'Humidity'],
                  REED: ['Alarm'],
-                 INTERNAL_CPU_TEMPERATURE: ['Temperature']
+                 INTERNAL_CPU_TEMPERATURE: ['Temperature'],
+                 LCD_1602a: ['lcd'],
+                 VIBRATOR: ['vibrator']
                  }
 
 
@@ -96,3 +104,39 @@ class Sensor:
             self.power_pin_set()
             self.ground_pin_set()
             self.door_sensor_read_data()
+
+    def initiate_lcd(self):
+        self.lcd = GpioLcd(rs_pin=Pin(self.pins[0], mode=Pin.OUT),
+                      enable_pin=Pin(self.pins[1], mode=Pin.OUT),
+                      d0_pin=Pin(self.pins[2], mode=Pin.OUT),
+                      d1_pin=Pin(self.pins[3], mode=Pin.OUT),
+                      d2_pin=Pin(self.pins[4], mode=Pin.OUT),
+                      d3_pin=Pin(self.pins[5], mode=Pin.OUT),
+                      d4_pin=Pin(self.pins[6], mode=Pin.OUT),
+                      d5_pin=Pin(self.pins[7], mode=Pin.OUT),
+                      d6_pin=Pin(self.pins[8], mode=Pin.OUT),
+                      d7_pin=Pin(self.pins[9], mode=Pin.OUT),
+                      backlight_pin=Pin(self.pins[10], mode=Pin.OUT),
+                      num_lines=2, num_columns=16)
+        self.alarm = False
+
+    def alarm_to_lcd(self, value):
+        self.alarm = True
+        self.lcd.hal_backlight_on()
+        self.lcd.display_on()
+        self.lcd.putstr(value)
+
+    def invert_display_state(self):
+        assert isinstance(self.lcd, GpioLcd), "Invert display called before initialization"
+        if self.lcd.display:
+            self.lcd.hal_backlight_off()
+            self.lcd.display_off()
+        else:
+            self.lcd.display_on()
+            self.lcd.hal_backlight_on()
+
+    def start_vibrator(self):
+        self.pins.value(1)
+
+    def stop_vibrator(self):
+        self.pins.value(0)

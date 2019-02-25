@@ -1,147 +1,172 @@
 import re
 import lib.logging as logging
+import ujson
+import networking.wifi as wifi
 from network import LTE
-from lib.network_iot import Cell
-from lib.configuration import Configuration
+from networking.network_iot import LTE_Network
 from time import sleep
-from lib.wifi import WLAN_AP
+from machine import Pin
+from lib.sim import Sim
+from networking.remote_server import Remote_server
+from sensors.sensor import Sensor
+from sensors.button import Button
+from lib.variable_functions import list_string_to_list
 
 log = logging.getLogger("UE")
-
 
 class UE:
 
     def __init__(self):
-        self.lte = LTE()
-        self.imei = self.lte.imei()
-        self.ip = None
-        self.sim = False
-        self.imsi = None
-        self.iccid = None
-        self.cell = Cell(self.lte)
-        self.config = Configuration()
-        self.config.get_config(initial=True)
-        self.alarms = False
-        self.sensors_dict = None
+        self.sim = Sim()
+        self.button = None
+        self.lte = None
+        self.wifi = None
+        self.bt = None
+        self.sensors = set()
+        self.token = None
+        self.remote_server = None
+        self.attributes = {'uploadFrequency': 10, 'deviceName': 'Pycom'}
+        self.shared_attributes = ['sharedKeys']
+        self.client_attributes = None
+        self.server_attributes = None
+        self.config_message = False
+        self.get_config(initial=True)
+        self.sim.get_sim_details(self.lte.lte)
 
-    # Used to check connectivity status of the ue to an external destination
-    def isconnected(self):
-        if self.config.lte:  # LTE is configured --> primary connection
-            if self.lte.isconnected() is True:  # LTE connected
-                return True
-            else:
-                return False
-        # Check if wifi is configured on Access-Point mode
-        elif self.config.wifi is not None and self.config.wifi.mode == WLAN_AP:
-            # Check connectivity to remote server
-            pass
+
+    # Create HTTP message to download configurations or read from saved file
+    def get_config(self, initial=False):
+        if initial is True:
+            with open('Initial_configuration.json', 'r') as f:
+                result = f.read()
+            dictionary = ujson.loads(result)
+            # Get token on first time
+            try:
+                self.token = dictionary['Token']
+                del dictionary['Token']
+            except AttributeError:
+                log.exception("Could not read 'token' from configuration file.")
         else:
-            return False
+            # TODO Get all attributes
+            dictionary = dict()
+        log.info('Read initial configuration: ' + result)
+        self.turn_dict_to_config(dictionary)
 
-    # Function used to attach and dettach from an LTE network
-    # Use retries for a non-blocking attach
-    def lte_attach(self, state=True, retries=30):
-        if state is False:
-            self.lte.dettach()
-            log.info('Dettached from network')
-            return False
-        if self.lte.isattached() is True:
-            log.info('Device is already attached.')
-            return True
-        print("Trying to attach.", end='')
-        retries_left = retries
-        self.lte.attach()
-        while retries_left > 0:
-            print('.', end='')
-            retries_left = retries_left - 1
-            if not self.lte.isattached():
-                sleep(2)
-            else:  # lte.isattached() returned True
-                # After successful attach, it's necessary to wait-
-                # until cell details are available.
-                print('')
-                log.info('Device attached successfully.')
-                print('\nGetting network info.', end='')
-                while not self.cell.get_details() and self.lte.isattached():  # Keep trying to get network info
-                    print('.', end='')
-                    sleep(2)
-                print('')
-                log.info('Attach procedure ended successfully.')
-                return True
-        print('')
-        log.info("Failed to attach after {0} retries".format(retries))
-        return False
+    # Convert dictionary to specific object configurations
+    def turn_dict_to_config(self, dictionary):
+        if "shared" in dictionary.keys():
+            assert isinstance(dictionary["shared"], dict), "shared attributes recieved not as a dictionary"
+            for attr in dictionary["shared"]:
+                self.value_to_config(attr, dictionary["shared"][attr])
+            del dictionary['shared']
+        for key in dictionary:
+            self.value_to_config(key, dictionary[key])
 
-    # Function used to connect and disconnect from an LTE network
-    # Use retries for a non-blocking connect
-    def lte_connect(self, state=True, retries=30, cid=1):
-        if not self.lte.isattached():
-            log.warning("Cannot connect/disconnect to/from network because UE is not attached.")
-            return False
-        # Disconnect if state=False
-        if not state:
-            self.lte.disconnect()
-            log.info("Disconnected from network.")
-            return False
-        # Connect if state=True, but first check if already connected
-        if self.lte.isconnected():
-            log.info("Device is already connected.")
-            return True
-        print("Info: Trying to connect.", end='')
-        retries_left = retries
-        if self.lte.isattached():
-            self.lte.connect()
-        while retries_left > 0:
-            print('.', end='')
-            retries_left = retries_left - 1
-            if not self.lte.isconnected():
-                sleep(2)
-            else:  # lte.isconnected() returned True
-                print('')
-                log.info("Connected successfully.")
-                return True
-        print('')
-        log.info("Failed to connect after {0} retries".format(retries))
-        return False
+    def value_to_config(self, key, val):
+        log.info("Updating attribute '{0}' to value '{1}'".format(key, val))
+        if key == "deviceName":
+            self.attributes["deviceName"] = val
+        elif key == "uploadFrequency":
+            self.attributes["uploadFrequency"] = int(val)
+            # NEED to add implementation of sleep (eDRX?)
+        elif key == "remoteServer":
+            # Data in the form 'Protocol:IP:port'
+            self.config_remote(val.split(':'))
+        elif key == "LTE":
+            if self.lte is None:
+                self.lte = LTE_Network(bands=val)
+            else:
+                self.lte.bands = val
+        elif key == "WIFI":
+            if self.wifi is not None:
+                self.wifi = None
+            self.config_wifi(val)
+        elif key == "BT":
+            self.bt = True
+            pass  # TODO to parse variables.
+        elif key == "Sensors":
+            for sensor in val:
+                self.config_sensor(sensor.split(','))
+        elif key == "Button":
+            self.button = Button(val[0], val[1:])
+            self.button.pin.callback(Pin.IRQ_RISING, self.button_pressed)
+        elif key == 'sharedKeys':
+            self.shared_attributes = list_string_to_list(val)
+        elif key == 'clientKeys':
+            self.client_attributes = list_string_to_list(val)
+        elif key == 'serverKeys':
+            self.server_attributes = list_string_to_list(val)
+        elif key == 'alarm_message':
+            # TODO - display alarm only on required sensors
+            for s in self.sensors:
+                if 'lcd' in s.type:
+                    s.alarm_to_lcd(val)
+                if 'vibrator' in s.type:
+                    s.start_vibrator()
+        else:
+            log.warning("Key '{0}' does not match any configure key.".format(key))
+
+    # Config the remote server details given configuration data
+    def config_remote(self, data):
+        protocol = data[0]
+        ip = data[1]
+        port = int(data[2])
+        self.remote_server = Remote_server(protocol, ip, port, self.token)
+
+    # Config the Wifi module
+    def config_wifi(self, data):
+        # 0 - mode         # 1 - ssid                       # 2 - password
+        # 3 - channel      # 4 - antenna pin or internal    # 5 - Default GW
+        # 6 - GW subnet    # 7 - ip address                 # 8 - subnet
+        try:
+            self.wifi = wifi.WIFI(data[0], data[1], (wifi.WLAN_WPA2, data[2]), data[3], data[4])
+            if data[0] == wifi.WLAN_AP:  # WiFi in AP mode
+                self.wifi.ip_configuration(data[5], data[6])
+            else:  # WiFi in Station mode
+                self.wifi.ip_configuration(data[5], data[6], data[0], data[7], data[8])
+        except AttributeError:
+            log.exception("WiFi configuration is wrong.")
+
+    # Config a sensor given it's configuration data
+    def config_sensor(self, data):
+        # Name, Model, Pins
+        # Pins = 0 --> internal sensor
+        # Pins = [Ground, VCC, Data]
+        for sensor in self.sensors:
+            # Sensor already configured.
+            if sensor.name == data[0] and sensor.model == data[1] and sensor.pins == data[2:]:
+                log.info("Sensor {0} already exists. No changes done." + data[0])
+            # Sensor already configured but changes need to be done.
+            elif sensor.name == data[0]:  # Found sensor with the same name but different configuration.
+                log.warning("Sensor with the same name ({0}), already exists, changing sensor values.")
+                self.delete_sensor(data[0])  # Delete old sensor details
+                self.add_sensor(data[0], data[1], data[2:])
+        # No similar sensor found.
+        self.add_sensor(data[0], data[1], data[2:])
+
+    # Function used to configure a new sensor
+    def add_sensor(self, name, model, pins: []):
+        assert isinstance(pins, list), "Pins are not of type list"
+        sensor = Sensor(name, model, pins)
+        self.sensors.add(sensor)
+        log.info("Sensor {0} added successfully.".format(name))
+
+    # Function used to remove an old sensor - Also used if sensor's type
+    # or pins need to change, as there is no update_sensor method
+    def delete_sensor(self, name):
+        for sensor in self.sensors:
+            if sensor.name == name:
+                self.sensors.remove(sensor)
+                log.info("Sensor {0} removed successfully.".format(name))
+                return
+        log.info("Sensor {0} not found.".format(name))
+
 
     # Create a list containing important data - Used if data is needed to be sent to server/database
     def create_info_list(self):
         info_list = [self.imei, self.iccid, self.imsi, self.ip]
         info_list.extend(self.cell.create_info_list())
         return info_list
-
-    # Gets the IP address of the device using AT-Commands
-    def get_ip(self):
-        # Get IP address
-        try:
-            self.ip = re.search(',[\"0-9\.]+', self.lte.send_at_cmd('AT+CGPADDR')).group(0).strip(',"')
-        except AttributeError:
-            log.exception("Could not get IP address from. Wait and try again later.")
-        return self.ip
-
-    # Function checks if there is a SIM card inserted by trying to get it's -
-    # CCID and IMSI. On success, it saves the CCID and IMSI inside the class.
-    def get_sim_details(self):
-        try:
-            self.iccid = self.lte.iccid()
-        except OSError as e:
-            log.exception(e)
-        if self.iccid is None:
-            self.sim = False
-        else:
-            self.iccid = self.iccid.strip('"')
-            self.sim = True
-        try:
-            self.imsi = re.search('[0-9]+', self.lte.send_at_cmd('AT+CIMI')).group(0)
-        except AttributeError:
-            log.exception("Could not extract IMSI from SIM card.")
-        return self.sim
-
-    # Add (key, value) to sensors dictionary
-    def add_sensor_to_dict(self, name, key, value):
-        if key in self.sensors_dict:  # Key already in dictionary
-            key = key + "_" + name
-        self.sensors_dict[key] = value
 
     # Return True if there is an "alarm" sensor configured
     def has_alarms(self):
@@ -150,35 +175,42 @@ class UE:
                 return True
         return False
 
-    # Sensor alarms must be initiated
+    # Some sensors must be initiated
     def start_sensors(self):
-        for sensor in self.config.sensors:
+        for sensor in self.sensors:
             if "Alarm" in sensor.type:
                 sensor.start_sensor(self)
+            elif "vibrator" in sensor.type:
+                sensor.pins = Pin(sensor.pins[0], mode=Pin.OUT)
+                sensor.pins.value(0)
+            elif "lcd" in sensor.type:
+                sensor.initiate_lcd()
+
+    def button_pressed(self, arg):
+        log.info("Button pressed.")
+        if arg():
+            if "vibrator" in self.button.controls:
+                vibrators = [sensor for sensor in self.sensors if "vibrator" in sensor.type]
+            if "lcd" in self.button.controls:
+                lcds = [sensor for sensor in self.sensors if "lcd" in sensor.type]
+            for sensor in vibrators:
+                sensor.stop_vibrator()
+            for sensor in lcds:
+                if not sensor.alarm: # Dont turn off display if an alarm just occurred
+                    sensor.invert_display_state()
+                else:
+                    sensor.alarm = False
 
     # Prints UE static information: IMEI, IMSI, CCID.
     def print_info(self):
         print("---------------UE information----------------")
-        print("IMEI: " + self.imei)
-        if self.get_sim_details():  # SIM card was found
-            try:
-                print("ICCID: " + self.iccid)
-                print("IMSI: " + self.imsi)
-            except TypeError:
-                log.exception("Error while printing SIM details.")
+        print("IMEI: " + self.lte.lte.imei())
+        if self.sim.iccid and self.sim.imsi:  # SIM card was found
+            print("ICCID: " + self.sim.iccid)
+            print("IMSI: " + self.sim.imsi)
+        else:
+            log.exception("Error while printing SIM details.")
         print('---------------------------------------------')
-
-    # Prints dynamic network information: IP address, Serving cell -
-    # get_details (cell ID, TaC, RSRP, etc.)
-    def print_network_info(self):
-        print("---------------Network information----------------")
-        if not self.lte.isattached():
-            log.warning("not in attach mode, cannot fetch serving network data.")
-        if self.cell.get_details():
-            if self.get_ip() is not None:
-                print("IP address: " + self.ip)
-            self.cell.print_all()
-            print('--------------------------------------------------')
 
     # Print all available sensors configured
     def print_sensors_info(self):
@@ -188,15 +220,3 @@ class UE:
     # Helper function to easily ping a remote server.
     def ping(self, ip):
         self.p('AT!="IP::ping {0}"'.format(ip))
-
-    # Helper function to easily execute AT-commands and print it's contents.
-    # Disconnects and connects to LTE network to become a non-blocking function.
-    def p(self, cmd, delay=0):
-        was_connected = self.lte.isconnected()
-        if was_connected:
-            self.lte.disconnect()
-        response = self.lte.send_at_cmd(cmd, delay=delay)
-        for i in [x for x in response.split('\r\n') if x]:  # take all lines of the response excluding empty lines
-            print(i)
-        if was_connected:
-            self.lte.connect()
