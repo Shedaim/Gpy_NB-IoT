@@ -4,8 +4,7 @@ import lib.messages as messages
 from sensors.dth import DTH
 from sensors.pyb_gpio_lcd import GpioLcd
 from machine import Pin
-
-
+from sensors.pytrack import Pytrack
 
 log = logging.getLogger("Sensor")
 
@@ -18,12 +17,15 @@ REED = 'reed'
 # LCD display - Show message sent by remote server
 LCD_1602a = '1602a'
 VIBRATOR = 'vibrator'
+# Location from Pytrack development board
+PYTRACK = 'location'
 
 SENSOR_MODELS = {DTH11: ['Temperature', 'Humidity'],
                  REED: ['Alarm'],
                  INTERNAL_CPU_TEMPERATURE: ['Temperature'],
                  LCD_1602a: ['lcd'],
-                 VIBRATOR: ['vibrator']
+                 VIBRATOR: ['vibrator'],
+                 PYTRACK: ['location']
                  }
 
 
@@ -95,6 +97,9 @@ class Sensor:
             self.value = machine.temperature()
         elif self.model == REED:
             pass  # Nothing to do
+        elif self.model == PYTRACK:
+            py = Pytrack();
+            self.value = py.get_location()
         return self.value
 
     def start_sensor(self, ue):

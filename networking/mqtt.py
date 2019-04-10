@@ -22,8 +22,10 @@ class MQTTClient:
         if port == 0:
             port = 8883 if ssl else 1883
         self.client_id = client_id
+        self.port = port
+        self.server = server
         self.sock = None
-        self.addr = socket.getaddrinfo(server, port)[0][-1]
+        self.addr = None
         self.ssl = ssl
         self.ssl_params = ssl_params
         self.pid = 0

@@ -179,7 +179,7 @@ class LTE_Network:
         was_connected = self.lte.isconnected()
         if was_connected:
             self.lte.disconnect()
-        response = self.lte.send_at_cmd(cmd, delay=delay)
+        response = self.lte.send_at_cmd(cmd)
         for i in [x for x in response.split('\r\n') if x]:  # take all lines of the response excluding empty lines
             print(i)
         if was_connected:

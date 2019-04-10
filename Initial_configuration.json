@@ -1,11 +1,10 @@
 {
   "uploadFrequency":10,
-  "deviceName":"Pycom-IoT",
-  "Token":"kFNoIHzmktMtW4xAa1J3",
+  "deviceName":"Pytrack1",
+  "Token":"oCu8zNfNDXJRCTTaZMQE",
   "LTE":[28],
   "WIFI":[2,"PycomWifi",
   "p@ssw0rd",11,0,"172.17.60.2","172.17.60.2"],
   "remoteServer":"MQTT:172.17.60.2:1883",
-  "Sensors":["OnPycom_Temp,cpu_temp,0", "VIB1,vibrator,G22","LCD1,1602a,G16,G15,G6,G7,G8,G9,G10,G23,G24,G11,G14"],
-  "Button":["G28", "vibrator", "lcd"]
+  "Sensors":["OnPycom_Temp,cpu_temp,0", "pytrack,location,0"]
 }

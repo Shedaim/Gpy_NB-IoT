@@ -18,15 +18,23 @@ class Remote_server:
         self.initialize()
 
     def initialize(self):
-        if self.protocol == "HTTP":
+        if self.protocol == "MQTT":
+            self.mqtt = mqtt.MQTTClient(self.token, self.ip, self.port, self.token, self.token)
+        elif self.protocol == "HTTP":
             self.http = http.HTTP()
             self.http.host = self.ip
             self.http.port = self.port
-        elif self.protocol == "MQTT":
-            self.mqtt = mqtt.MQTTClient(self.token, self.ip, self.port, self.token, self.token)
+
+    def restart_mqtt_obj(self):
+        try:
+            self.mqtt.sock.close()
+        except:
+            log.exception("Failed to close MQTT socket")
+        self.initialize()
 
     # Initialize MQTT
-    def initialize_mqtt(self, first_call=True):
+    def initialize_mqtt(self):
+        self.mqtt.addr = socket.getaddrinfo(self.mqtt.server, self.mqtt.port)[0][-1]
         try:
             if self.mqtt.sock is not None:
                 log.info("Found existing socket. Closing it.")

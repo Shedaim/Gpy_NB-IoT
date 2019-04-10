@@ -65,10 +65,13 @@ def main():
                     messages.send_sensors_via_mqtt(ue)
                 except OSError:
                     log.exception("Error sending MQTT message to server.")
-                    ue.remote_server.initialize_mqtt(first_call=False)
+                    ue.remote_server.restart_mqtt_obj()
+                    ue.remote_server.mqtt.set_callback(_callback_message_to_config)
+                    ue.remote_server.initialize_mqtt()
                     continue
             elif ue.remote_server.http is not None:
                 messages.send_sensors_via_http(ue)
+                # TODO - reconnect HTTP socket on disconnection
             ue.remote_server.mqtt.check_msg()
             sleep(ue.attributes['uploadFrequency'])
         else:
