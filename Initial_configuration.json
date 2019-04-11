@@ -3,8 +3,6 @@
   "deviceName":"Pytrack1",
   "Token":"oCu8zNfNDXJRCTTaZMQE",
   "LTE":[28],
-  "WIFI":[2,"PycomWifi",
-  "p@ssw0rd",11,0,"172.17.60.2","172.17.60.2"],
   "remoteServer":"MQTT:172.17.60.2:1883",
-  "Sensors":["OnPycom_Temp,cpu_temp,0", "pytrack,location,0"]
+  "Sensors":["OnPycom_Temp,cpu_temp,0", "pytrack1,pytrack,0"]
 }

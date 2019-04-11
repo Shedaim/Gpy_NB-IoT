@@ -18,14 +18,14 @@ REED = 'reed'
 LCD_1602a = '1602a'
 VIBRATOR = 'vibrator'
 # Location from Pytrack development board
-PYTRACK = 'location'
+PYTRACK = 'pytrack'
 
 SENSOR_MODELS = {DTH11: ['Temperature', 'Humidity'],
                  REED: ['Alarm'],
                  INTERNAL_CPU_TEMPERATURE: ['Temperature'],
                  LCD_1602a: ['lcd'],
                  VIBRATOR: ['vibrator'],
-                 PYTRACK: ['location']
+                 PYTRACK: ['latitude', 'longitude']
                  }
 
 
