@@ -10,11 +10,11 @@ class Sim:
         self.imsi = None
 
     def get_sim_details(self, lte_obj):
-        
+
         # Get ICCID
         try:
             self.iccid = lte_obj.iccid().strip('"')
-        except OSError as e:
+        except AttributeError as e:
             log.exception(e)
 
         # Get IMSI
