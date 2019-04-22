@@ -40,7 +40,10 @@ class LTE_Network:
         else:
             print("Trying to attach.", end='')
             retries_left = retries
-            self.lte.attach()
+            try:
+                self.lte.attach()
+            except OSError:
+                log.exception("Error attaching to network\n")
             while retries_left > 0:
                 print('.', end='')
                 retries_left = retries_left - 1

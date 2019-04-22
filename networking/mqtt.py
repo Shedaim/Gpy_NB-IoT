@@ -5,15 +5,8 @@ import lib.logging as logging
 
 log = logging.getLogger("MQTT")
 
-TELEMETRY_PATH = 'v1/devices/me/telemetry'
-SUBSCRIBE_PATH = 'v1/devices/me/attributes/response/+'
-ATTRIBUTES_PATH = 'v1/devices/me/attributes'
-REQUEST_ATTR_PATH = 'v1/devices/me/attributes/request/'
-
-
 class MQTTException(Exception):
     pass
-
 
 class MQTTClient:
 
@@ -22,10 +15,9 @@ class MQTTClient:
         if port == 0:
             port = 8883 if ssl else 1883
         self.client_id = client_id
-        self.port = port
-        self.server = server
         self.sock = None
-        self.addr = None
+        self.server = server
+        self.port = port
         self.ssl = ssl
         self.ssl_params = ssl_params
         self.pid = 0
@@ -65,26 +57,38 @@ class MQTTClient:
 
     def connect(self, clean_session=True):
         self.sock = socket.socket()
-        self.sock.connect(self.addr)
+        addr = socket.getaddrinfo(self.server, self.port)[0][-1]
+        self.sock.connect(addr)
         if self.ssl:
             import ussl
             self.sock = ussl.wrap_socket(self.sock, **self.ssl_params)
-        msg = bytearray(b"\x10\0\0\x04MQTT\x04\x02\0\0")
-        msg[1] = 10 + 2 + len(self.client_id)
-        msg[9] = clean_session << 1
+        premsg = bytearray(b"\x10\0\0\0\0\0")
+        msg = bytearray(b"\x04MQTT\x04\x02\0\0")
+
+        sz = 10 + 2 + len(self.client_id)
+        msg[6] = clean_session << 1
         if self.user is not None:
-            msg[1] += 2 + len(self.user) + 2 + len(self.pswd)
-            msg[9] |= 0xC0
+            sz += 2 + len(self.user) + 2 + len(self.pswd)
+            msg[6] |= 0xC0
         if self.keepalive:
             assert self.keepalive < 65536
-            msg[10] |= self.keepalive >> 8
-            msg[11] |= self.keepalive & 0x00FF
+            msg[7] |= self.keepalive >> 8
+            msg[8] |= self.keepalive & 0x00FF
         if self.lw_topic:
-            msg[1] += 2 + len(self.lw_topic) + 2 + len(self.lw_msg)
-            msg[9] |= 0x4 | (self.lw_qos & 0x1) << 3 | (self.lw_qos & 0x2) << 3
-            msg[9] |= self.lw_retain << 5
+            sz += 2 + len(self.lw_topic) + 2 + len(self.lw_msg)
+            msg[6] |= 0x4 | (self.lw_qos & 0x1) << 3 | (self.lw_qos & 0x2) << 3
+            msg[6] |= self.lw_retain << 5
+
+        i = 1
+        while sz > 0x7f:
+            premsg[i] = (sz & 0x7f) | 0x80
+            sz >>= 7
+            i += 1
+        premsg[i] = sz
+
+        self.sock.write(premsg, i + 2)
         self.sock.write(msg)
-        # print(hex(len(msg)), hexlify(msg, ":"))
+        #print(hex(len(msg)), hexlify(msg, ":"))
         self._send_str(self.client_id)
         if self.lw_topic:
             self._send_str(self.lw_topic)
@@ -118,7 +122,7 @@ class MQTTClient:
             sz >>= 7
             i += 1
         pkt[i] = sz
-        # print(hex(len(pkt)), hexlify(pkt, ":"))
+        #print(hex(len(pkt)), hexlify(pkt, ":"))
         self.sock.write(pkt, i + 1)
         self._send_str(topic)
         if qos > 0:
@@ -145,15 +149,15 @@ class MQTTClient:
         pkt = bytearray(b"\x82\0\0\0")
         self.pid += 1
         struct.pack_into("!BH", pkt, 1, 2 + 2 + len(topic) + 1, self.pid)
+        #print(hex(len(pkt)), hexlify(pkt, ":"))
         self.sock.write(pkt)
         self._send_str(topic)
         self.sock.write(qos.to_bytes(1, "little"))
         while 1:
             op = self.wait_msg()
-            # print (hex(op))
-            if op & 0xf0 == 0x90:
+            if op == 0x90:
                 resp = self.sock.read(4)
-                # print(resp)
+                #print(resp)
                 assert resp[1] == pkt[2] and resp[2] == pkt[3]
                 if resp[3] == 0x80:
                     raise MQTTException(resp[3])
@@ -168,15 +172,13 @@ class MQTTClient:
         self.sock.setblocking(True)
         if res is None:
             return None
-        if res == b"":
-            raise OSError(-1)
         if res == b"\xd0":  # PINGRESP
             sz = self.sock.read(1)[0]
             assert sz == 0
             return None
         op = res[0]
         if op & 0xf0 != 0x30:
-            return op
+            return op & 0xf0
         sz = self._recv_len()
         topic_len = self.sock.read(2)
         topic_len = (topic_len[0] << 8) | topic_len[1]

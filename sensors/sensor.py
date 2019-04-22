@@ -5,6 +5,7 @@ from sensors.dth import DTH
 from sensors.pyb_gpio_lcd import GpioLcd
 from machine import Pin
 from sensors.pytrack import Pytrack
+from sensors.onewire import OneWire, DS18X20
 
 log = logging.getLogger("Sensor")
 
@@ -19,15 +20,20 @@ LCD_1602a = '1602a'
 VIBRATOR = 'vibrator'
 # Location from Pytrack development board
 PYTRACK = 'pytrack'
+DS18X20_MODEL = 'ds18x20'
+PASSIVE_BUZZER = 'passive_buzzer'
+ACTIVE_DUAL_BEAM_IR = 'abt-100'
 
 SENSOR_MODELS = {DTH11: ['Temperature', 'Humidity'],
                  REED: ['Alarm'],
                  INTERNAL_CPU_TEMPERATURE: ['Temperature'],
                  LCD_1602a: ['lcd'],
                  VIBRATOR: ['vibrator'],
-                 PYTRACK: ['latitude', 'longitude']
+                 PYTRACK: ['latitude', 'longitude'],
+                 DS18X20_MODEL: ['Temperature'],
+                 PASSIVE_BUZZER: ['buzzer'],
+                 ACTIVE_DUAL_BEAM_IR: ['fence']
                  }
-
 
 class Sensor:
 
@@ -100,7 +106,29 @@ class Sensor:
         elif self.model == PYTRACK:
             py = Pytrack();
             self.value = py.get_location()
+        elif self.model == DS18X20_MODEL:
+            ow = OneWire(Pin(self.pins[0]))
+            temp = DS18X20(ow)
+            temp.start_conversion()
+            time.sleep(1)
+            self.value = temp.read_temp_async()
+        elif self.model == ACTIVE_DUAL_BEAM_IR:
+            if self.pins.value():
+                self.value = "obscured"
+            else:
+                self.value = "clear"
         return self.value
+
+    def fence(self, arg):
+        log.info(arg())
+        if arg():
+            value = 1
+        else:
+            value = 0
+        data = {'Fence': 'triggered'}
+        messages.send_sensors_via_mqtt(self.ue, alarm=True, data=data)
+        log.info("Fence state changed")
+        log.info(str(data))
 
     def start_sensor(self, ue):
         self.ue = ue
@@ -109,6 +137,10 @@ class Sensor:
             self.power_pin_set()
             self.ground_pin_set()
             self.door_sensor_read_data()
+        elif self.model == ACTIVE_DUAL_BEAM_IR:
+            log.info("starting fence sensor")
+            self.pins = Pin(self.pins[0], mode=Pin.IN)
+            self.pins.callback(Pin.IRQ_RISING, self.fence)
 
     def initiate_lcd(self):
         self.lcd = GpioLcd(rs_pin=Pin(self.pins[0], mode=Pin.OUT),
@@ -127,6 +159,7 @@ class Sensor:
 
     def alarm_to_lcd(self, value):
         self.alarm = True
+        self.lcd.clear()
         self.lcd.hal_backlight_on()
         self.lcd.display_on()
         self.lcd.putstr(value)
@@ -144,4 +177,9 @@ class Sensor:
         self.pins.value(1)
 
     def stop_vibrator(self):
+        self.pins.value(0)
+
+    def start_buzzer(self):
+        self.pins.value(1)
+        time.sleep(5)
         self.pins.value(0)

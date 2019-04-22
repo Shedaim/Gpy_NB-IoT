@@ -4,7 +4,8 @@ from networking.network_iot import initialize_wifi
 import ujson
 import lib.logging as logging
 import lib.messages as messages
-
+from machine import SD
+import os
 
 log = logging.getLogger("Main")
 
@@ -17,7 +18,7 @@ def _callback_message_to_config(topic, message):
     if ue.remote_server != remote:
         if ue.remote_server.mqtt is not None: # New server is communicating via MQTT
             ue.remote_server.mqtt.set_callback(_callback_message_to_config)
-            ue.remote_server.initialize_mqtt()
+            ue.remote_server.initialize_mqtt(ue.attributes["uploadFrequency"] * 3)
     ue.remote_server.mqtt.check_msg()  # We successfully recieved one message, check if another is waiting.
 
 def main():
@@ -42,7 +43,7 @@ def main():
     elif ue.remote_server.mqtt is not None:  # Send messages via mqtt, untill reconfiguration
         ue.remote_server.mqtt.set_callback(_callback_message_to_config)
         log.info("Running mqtt first time")
-        ue.remote_server.initialize_mqtt()
+        ue.remote_server.initialize_mqtt(ue.attributes["uploadFrequency"] * 3)
         # Initial configuration - ask for shared attributes
         messages.request_attributes(ue.remote_server, ue.client_attributes,
          ue.server_attributes, ue.shared_attributes)
@@ -80,6 +81,8 @@ def main():
 
 
 # Initialize ue object and print it's data
+sd = SD()
+os.mount(sd,'/sd')
 ue = UE()
 ue.print_info()
 # Wait untill initial configuration has been updated

@@ -4,6 +4,7 @@ from sensors.lcd_api import LcdApi
 from machine import Pin
 from utime import sleep_ms, sleep_us
 
+# Tested on Connectors G6-G11, G14-G16, G22-G24, G28, Ground, Vin of the GPy with Expansion Board 3.0
 
 class GpioLcd(LcdApi):
     def __init__(self, rs_pin, enable_pin, d0_pin=None, d1_pin=None,

@@ -1,7 +1,7 @@
 import ujson
 import lib.logging as logging
 import networking.http as http
-import networking.mqtt as mqtt
+import networking.robust_mqtt as mqtt
 
 log = logging.getLogger("Messages")
 

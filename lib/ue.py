@@ -103,6 +103,8 @@ class UE:
                     s.alarm_to_lcd(val)
                 if 'vibrator' in s.type:
                     s.start_vibrator()
+                if 'buzzer' in s.type:
+                    s.start_buzzer()
         else:
             log.warning("Key '{0}' does not match any configure key.".format(key))
 
@@ -185,6 +187,11 @@ class UE:
                 sensor.pins.value(0)
             elif "lcd" in sensor.type:
                 sensor.initiate_lcd()
+            elif "buzzer" in sensor.type:
+                sensor.pins = Pin(sensor.pins[0], mode=Pin.OUT)
+                sensor.pins.value(0)
+            elif "fence" in sensor.type:
+                sensor.start_sensor(self)
 
     def button_pressed(self, arg):
         log.info("Button pressed.")

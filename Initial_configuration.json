@@ -4,5 +4,5 @@
   "Token":"MZB9GDFaO2dMrUECmm23",
   "LTE":[28],
   "remoteServer":"MQTT:172.17.60.2:1883",
-  "Sensors":["OnPycom_Temp,cpu_temp,0", "pytrack1,pytrack,0"]
+  "Sensors":["OnPycom_Temp,cpu_temp,0", "pytrack,pytrack,0"]
 }

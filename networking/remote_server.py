@@ -1,5 +1,5 @@
 import lib.logging as logging
-import networking.mqtt as mqtt
+import networking.robust_mqtt as mqtt
 import networking.http as http
 import socket
 from time import sleep
@@ -19,6 +19,7 @@ class Remote_server:
 
     def initialize(self):
         if self.protocol == "MQTT":
+            log.info("MQTT:" + str(self.token) + "\n" + str(self.ip) + "\n" + str(self.port))
             self.mqtt = mqtt.MQTTClient(self.token, self.ip, self.port, self.token, self.token)
         elif self.protocol == "HTTP":
             self.http = http.HTTP()
@@ -33,8 +34,9 @@ class Remote_server:
         self.initialize()
 
     # Initialize MQTT
-    def initialize_mqtt(self):
-        self.mqtt.addr = socket.getaddrinfo(self.mqtt.server, self.mqtt.port)[0][-1]
+    def initialize_mqtt(self, keepalive=0):
+        # self.mqtt.addr = socket.getaddrinfo(self.mqtt.server, self.mqtt.port)[0][-1]
+        self.mqtt.keepalive = keepalive
         try:
             if self.mqtt.sock is not None:
                 log.info("Found existing socket. Closing it.")

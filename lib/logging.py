@@ -41,8 +41,12 @@ class Logger:
             _stream.write("%s: %s: " % (self._level_str(level), self.name))
             if not args:
                 print(msg, file=_stream)
+                with open('/sd/logs.log','a') as file:
+                    file.write(msg + '\n')
             else:
                 print(msg % args, file=_stream)
+                with open('/sd/logs.log','a') as file:
+                    file.write(msg + '\n')
 
     def debug(self, msg, *args):
         self.log(DEBUG, msg, *args)

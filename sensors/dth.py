@@ -1,6 +1,7 @@
 import time
 from machine import enable_irq, disable_irq,  Pin
 
+# Tested on Connectors G6,G7,G8 of the GPy with Expansion Board 3.0
 
 class DTHResult:
     'DHT sensor result returned by DHT.read() method'
