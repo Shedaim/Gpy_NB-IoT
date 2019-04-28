@@ -83,7 +83,7 @@ try:
     sd = SD()
     os.mount(sd, '/sd')
 except OSError:
-    log.exception()
+    log.warning("SD-Card not found.")
 
 # Initialize ue object and print it's data
 ue = UE()
