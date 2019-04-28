@@ -1,4 +1,5 @@
 import sys
+from machine import SD
 
 CRITICAL = 50
 ERROR    = 40
@@ -23,6 +24,11 @@ class Logger:
 
     def __init__(self, name):
         self.name = name
+        try:
+            self.sd = SD()
+        except OSError:
+            self.sd = None
+            self.info("SD card not found. Logs will not be saved to file.")
 
     def _level_str(self, level):
         l = _level_dict.get(level)
@@ -41,12 +47,12 @@ class Logger:
             _stream.write("%s: %s: " % (self._level_str(level), self.name))
             if not args:
                 print(msg, file=_stream)
-                with open('/sd/logs.log','a') as file:
-                    file.write(msg + '\n')
+                if self.sd is not None:
+                    self.save_to_file(level, msg, _stream)
             else:
                 print(msg % args, file=_stream)
-                with open('/sd/logs.log','a') as file:
-                    file.write(msg + '\n')
+                if self.sd is not None:
+                    self.save_to_file(level, msg, _stream, args)
 
     def debug(self, msg, *args):
         self.log(DEBUG, msg, *args)
@@ -70,6 +76,13 @@ class Logger:
     def exception(self, msg, *args):
         self.exc(sys.exc_info()[1], msg, *args)
 
+    def save_to_file(self, level, msg, _stream, *args):
+        try:
+            with open('/sd/logs.log','a') as file:
+                s = self._level_str(level) + ': ' + self.name + ': ' + msg + '\n'
+                file.write(s)
+        except OSError as e:
+            sys.print_exception(e, _stream)
 
 _level = INFO
 _loggers = {}

@@ -79,10 +79,13 @@ def main():
             # NEED to check LTE reconnection
             ue.lte.lte_connect_procedure()
 
+try:
+    sd = SD()
+    os.mount(sd, '/sd')
+except OSError:
+    log.exception()
 
 # Initialize ue object and print it's data
-sd = SD()
-os.mount(sd,'/sd')
 ue = UE()
 ue.print_info()
 # Wait untill initial configuration has been updated
