@@ -1,4 +1,4 @@
-import logging as logging
+import logging
 
 log = logging.getLogger("Variable_functions")
 

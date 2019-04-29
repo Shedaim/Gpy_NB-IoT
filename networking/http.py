@@ -1,5 +1,5 @@
 import socket
-import logging as logging
+import logging
 
 log = logging.getLogger("HTTP")
 

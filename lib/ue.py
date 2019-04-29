@@ -1,5 +1,5 @@
 import re
-import logging as logging
+import logging
 import ujson
 import networking.wifi as wifi
 from network import LTE

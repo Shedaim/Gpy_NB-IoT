@@ -1,6 +1,6 @@
 import time
-import logging as logging
-import messages as messages
+import logging
+import messages
 from sensors.dth import DTH
 from sensors.pyb_gpio_lcd import GpioLcd
 from machine import Pin

@@ -1,7 +1,7 @@
 import usocket as socket
 import ustruct as struct
 from ubinascii import hexlify
-import logging as logging
+import logging
 
 log = logging.getLogger("MQTT")
 

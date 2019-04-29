@@ -1,5 +1,5 @@
 import ujson
-import logging as logging
+import logging
 import networking.http as http
 import networking.robust_mqtt as mqtt
 
