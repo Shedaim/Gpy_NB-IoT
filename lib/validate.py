@@ -7,6 +7,7 @@ NAME_REGEX = "[A-Za-z0-9_]+"
 TOKEN_REGEX = "[A-Za-z0-9]+"
 PROTOCOL_REGEX = "MQTT||HTTP"
 PORT_REGEX = "[0-9]+"
+PIN_REGEX = "G[0-9]+|0"
 
 def is_valid_type(user_input, expected_type):
     if expected_type == 'string':
@@ -28,6 +29,18 @@ def is_valid_type(user_input, expected_type):
     else:
         log.error("Function 'is_valid_type' called for unknown input type")
     return False
+
+
+def is_valid_sensor(user_input):
+    if not is_valid_type(user_input, "list"): return False
+    for sensor in user_input:
+        sensor = sensor.split(',')
+        if len(sensor) < 3: return False
+        if not is_valid_string(sensor[0], "name"): return False
+        if not is_valid_string(sensor[1], "name"): return False
+        for pin in sensor[2:]:
+            if not match_regex(PIN_REGEX, pin): return False
+    return True
 
 
 def is_valid_string(user_input, arg):

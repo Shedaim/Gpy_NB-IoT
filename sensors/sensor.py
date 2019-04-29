@@ -22,7 +22,7 @@ VIBRATOR = 'vibrator'
 PYTRACK = 'pytrack'
 DS18X20_MODEL = 'ds18x20'
 PASSIVE_BUZZER = 'passive_buzzer'
-ACTIVE_DUAL_BEAM_IR = 'abt-100'
+ACTIVE_DUAL_BEAM_IR = 'abt_100'
 
 SENSOR_MODELS = {DTH11: ['Temperature', 'Humidity'],
                  REED: ['Alarm'],

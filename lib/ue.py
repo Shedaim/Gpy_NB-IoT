@@ -124,8 +124,11 @@ class UE:
             pass  # TODO to parse variables.
 
         elif key == "Sensors":
-            for sensor in val:
-                self.config_sensor(sensor.split(','))
+            if validate.is_valid_sensor(val):
+                for sensor in val:
+                    self.config_sensor(sensor.split(','))
+            else:
+                log.error("Sensors input is not valid. Sensors not configured.")
 
         elif key == "Button":
             self.button = Button(val[0], val[1:])
