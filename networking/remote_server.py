@@ -6,6 +6,8 @@ from time import sleep
 
 log = logging.getLogger("Remote_server")
 
+DEFAULT_REMOTE_SERVER = ["MQTT", "172.17.60.2", "1883"]
+
 class Remote_server:
 
     def __init__(self, protocol, ip, port, token):
@@ -19,8 +21,10 @@ class Remote_server:
 
     def initialize(self):
         if self.protocol == "MQTT":
-            log.info("MQTT:" + str(self.token) + "\n" + str(self.ip) + "\n" + str(self.port))
-            self.mqtt = mqtt.MQTTClient(self.token, self.ip, self.port, self.token, self.token)
+            log.info("Initializing remote_server MQTT:" + str(self.ip) +
+            ":" + str(self.port))
+            self.mqtt = mqtt.MQTTClient(self.token, self.ip,
+            self.port, self.token, self.token)
         elif self.protocol == "HTTP":
             self.http = http.HTTP()
             self.http.host = self.ip
@@ -35,7 +39,6 @@ class Remote_server:
 
     # Initialize MQTT
     def initialize_mqtt(self, keepalive=0):
-        # self.mqtt.addr = socket.getaddrinfo(self.mqtt.server, self.mqtt.port)[0][-1]
         self.mqtt.keepalive = keepalive
         try:
             if self.mqtt.sock is not None:
@@ -51,7 +54,8 @@ class Remote_server:
             log.exception("Could not connect to MQTT server.")
             return False
 
-    # Subscribe to a server's action (e.g the possibility to recieve attribute updates)
+    # Subscribe to a server's action
+    # (e.g the possibility to recieve attribute updates)
     def subscribe_to_server(self, _type='initial'):
         if _type == 'initial':
             path = mqtt.SUBSCRIBE_PATH
@@ -65,4 +69,5 @@ class Remote_server:
             if packet:  # Send message
                 self.http.send_message(packet)
             else:
-                log.warning("Missing vital information for an HTTP message: " + packet)
+                log.warning("Missing vital information for an HTTP message: "
+                + packet)

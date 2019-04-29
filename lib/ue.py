@@ -11,8 +11,13 @@ from networking.remote_server import Remote_server
 from sensors.sensor import Sensor
 from sensors.button import Button
 from lib.variable_functions import list_string_to_list
+import validate
 
 log = logging.getLogger("UE")
+
+DEFAULT_UPLOAD_FREQUENCY = 10
+DEFAULT_NAME = "PycomDevice"
+
 
 class UE:
 
@@ -42,8 +47,11 @@ class UE:
             dictionary = ujson.loads(result)
             # Get token on first time
             try:
-                self.token = dictionary['Token']
-                del dictionary['Token']
+                if validate.is_valid_string(dictionary['Token'], 'token'):
+                    log.error("Token input is not valid")
+                else:
+                    self.token = dictionary['Token']
+                    del dictionary['Token']
             except AttributeError:
                 log.exception("Could not read 'token' from configuration file.")
         else:
@@ -55,7 +63,8 @@ class UE:
     # Convert dictionary to specific object configurations
     def turn_dict_to_config(self, dictionary):
         if "shared" in dictionary.keys():
-            assert isinstance(dictionary["shared"], dict), "shared attributes recieved not as a dictionary"
+            assert isinstance(dictionary["shared"], dict), \
+                              "shared attributes recieved not as a dictionary"
             for attr in dictionary["shared"]:
                 self.value_to_config(attr, dictionary["shared"][attr])
             del dictionary['shared']
@@ -64,38 +73,73 @@ class UE:
 
     def value_to_config(self, key, val):
         log.info("Updating attribute '{0}' to value '{1}'".format(key, val))
+
         if key == "deviceName":
-            self.attributes["deviceName"] = val
-        elif key == "uploadFrequency":
-            self.attributes["uploadFrequency"] = int(val)
-            # NEED to add implementation of sleep (eDRX?)
-        elif key == "remoteServer":
-            # Data in the form 'Protocol:IP:port'
-            self.config_remote(val.split(':'))
-        elif key == "LTE":
-            if self.lte is None:
-                self.lte = LTE_Network(bands=val)
+            if validate.is_valid_string(val, 'name'):
+                self.attributes["deviceName"] = val
             else:
-                self.lte.bands = val
+                log.error("Device Name input is not valid, using default name")
+                self.attributes["deviceName"] = DEFAULT_NAME
+
+        elif key == "uploadFrequency":
+            if validate.is_valid_type(val, "int"):
+                self.attributes["uploadFrequency"] = int(val)
+            else:
+                log.error("Upload Frequency input is not valid, \
+                using default value")
+                self.attributes["uploadFrequency"] = DEFAULT_UPLOAD_FREQUENCY
+            # NEED to add implementation of sleep (eDRX?)
+
+        elif key == "remoteServer":
+            if validate.is_valid_remote_server(val):
+                # Data in the form 'Protocol:IP:port'
+                self.config_remote(val)
+            else:
+                log.error("Remote Server input is not valid, " \
+                "using default values")
+                from networking.remote_server import DEFAULT_REMOTE_SERVER
+                self.config_remote(DEFAULT_REMOTE_SERVER)
+
+        elif key == "LTE":
+            if validate.is_valid_lte_bands(val):
+                if self.lte is None:
+                    self.lte = LTE_Network(bands=val)
+                else:
+                    self.lte.bands = val
+            else:
+                log.error("LTE bands input is not valid." \
+                "Bands were not updated.")
+
         elif key == "WIFI":
-            if self.wifi is not None:
-                self.wifi = None
-            self.config_wifi(val)
+            if validate.is_valid_wifi(val):
+                if self.wifi is not None:
+                    self.wifi = None
+                self.config_wifi(val)
+            else:
+                log.error("WIFI configuration is not valid." \
+                "WIFI configuration was not updated.")
+
         elif key == "BT":
             self.bt = True
             pass  # TODO to parse variables.
+
         elif key == "Sensors":
             for sensor in val:
                 self.config_sensor(sensor.split(','))
+
         elif key == "Button":
             self.button = Button(val[0], val[1:])
             self.button.pin.callback(Pin.IRQ_RISING, self.button_pressed)
+
         elif key == 'sharedKeys':
             self.shared_attributes = list_string_to_list(val)
+
         elif key == 'clientKeys':
             self.client_attributes = list_string_to_list(val)
+
         elif key == 'serverKeys':
             self.server_attributes = list_string_to_list(val)
+
         elif key == 'alarm_message':
             # TODO - display alarm only on required sensors
             for s in self.sensors:
@@ -106,7 +150,8 @@ class UE:
                 if 'buzzer' in s.type:
                     s.start_buzzer()
         else:
-            log.warning("Key '{0}' does not match any configure key.".format(key))
+            log.warning("Key '{0}' does not match any configure key." \
+            .format(key))
 
     # Config the remote server details given configuration data
     def config_remote(self, data):
@@ -121,11 +166,13 @@ class UE:
         # 3 - channel      # 4 - antenna pin or internal    # 5 - Default GW
         # 6 - GW subnet    # 7 - ip address                 # 8 - subnet
         try:
-            self.wifi = wifi.WIFI(data[0], data[1], (wifi.WLAN_WPA2, data[2]), data[3], data[4])
+            self.wifi = wifi.WIFI(data[0], data[1],
+             (wifi.WLAN_WPA2, data[2]), data[3], data[4])
             if data[0] == wifi.WLAN_AP:  # WiFi in AP mode
                 self.wifi.ip_configuration(data[5], data[6])
             else:  # WiFi in Station mode
-                self.wifi.ip_configuration(data[5], data[6], data[0], data[7], data[8])
+                self.wifi.ip_configuration(data[5], data[6],
+                 data[0], data[7], data[8])
         except AttributeError:
             log.exception("WiFi configuration is wrong.")
 
@@ -136,11 +183,15 @@ class UE:
         # Pins = [Ground, VCC, Data]
         for sensor in self.sensors:
             # Sensor already configured.
-            if sensor.name == data[0] and sensor.model == data[1] and sensor.pins == data[2:]:
-                log.info("Sensor {0} already exists. No changes done." + data[0])
+            if (sensor.name == data[0] and sensor.model == data[1] and
+            sensor.pins == data[2:]):
+                log.info("Sensor {0} already exists. No changes done."
+                .format(sensor.name))
             # Sensor already configured but changes need to be done.
-            elif sensor.name == data[0]:  # Found sensor with the same name but different configuration.
-                log.warning("Sensor with the same name ({0}), already exists, changing sensor values.")
+            # Found sensor with the same name but different configuration.
+            elif sensor.name == data[0]:
+                log.warning("Sensor with the same name ({0}), already exists," \
+                "changing sensor values.".format(sensor.name))
                 self.delete_sensor(data[0])  # Delete old sensor details
                 self.add_sensor(data[0], data[1], data[2:])
         # No similar sensor found.
@@ -164,7 +215,8 @@ class UE:
         log.info("Sensor {0} not found.".format(name))
 
 
-    # Create a list containing important data - Used if data is needed to be sent to server/database
+    # Create a list containing important data -
+    # Used if data is needed to be sent to server/database
     def create_info_list(self):
         info_list = [self.imei, self.iccid, self.imsi, self.ip]
         info_list.extend(self.cell.create_info_list())

@@ -16,10 +16,11 @@ def _callback_message_to_config(topic, message):
     log.info("Recieved message {1} to topic {0}".format(topic, message))
     ue.turn_dict_to_config(ujson.loads(message))
     if ue.remote_server != remote:
-        if ue.remote_server.mqtt is not None: # New server is communicating via MQTT
+        if ue.remote_server.mqtt is not None: # Server is communicating via MQTT
             ue.remote_server.mqtt.set_callback(_callback_message_to_config)
             ue.remote_server.initialize_mqtt(ue.attributes["uploadFrequency"] * 3)
-    ue.remote_server.mqtt.check_msg()  # We successfully recieved one message, check if another is waiting.
+    # We successfully recieved one message, check if another is waiting.
+    ue.remote_server.mqtt.check_msg()
 
 def main():
     # Initial configuration
@@ -37,10 +38,12 @@ def main():
         sleep(1)
 
     # Send data while connected to a remote destination
-    if ue.remote_server.http is not None:  # Send messages via http, untill reconfiguration
+    # Send messages via http, untill reconfiguration
+    if ue.remote_server.http is not None:
         # TODO to implement HTTP part
         pass
-    elif ue.remote_server.mqtt is not None:  # Send messages via mqtt, untill reconfiguration
+    # Send messages via mqtt, untill reconfiguration
+    elif ue.remote_server.mqtt is not None:  
         ue.remote_server.mqtt.set_callback(_callback_message_to_config)
         log.info("Running mqtt first time")
         ue.remote_server.initialize_mqtt(ue.attributes["uploadFrequency"] * 3)
