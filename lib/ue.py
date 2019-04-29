@@ -190,6 +190,7 @@ class UE:
             sensor.pins == data[2:]):
                 log.info("Sensor {0} already exists. No changes done."
                 .format(sensor.name))
+                return
             # Sensor already configured but changes need to be done.
             # Found sensor with the same name but different configuration.
             elif sensor.name == data[0]:
@@ -197,8 +198,10 @@ class UE:
                 "changing sensor values.".format(sensor.name))
                 self.delete_sensor(data[0])  # Delete old sensor details
                 self.add_sensor(data[0], data[1], data[2:])
+                return
         # No similar sensor found.
         self.add_sensor(data[0], data[1], data[2:])
+
 
     # Function used to configure a new sensor
     def add_sensor(self, name, model, pins: []):
