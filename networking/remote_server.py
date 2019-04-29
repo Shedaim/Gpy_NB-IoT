@@ -1,4 +1,4 @@
-import lib.logging as logging
+import logging as logging
 import networking.robust_mqtt as mqtt
 import networking.http as http
 import socket

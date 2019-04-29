@@ -1,16 +1,16 @@
 import re
-import lib.logging as logging
+import logging as logging
 import ujson
 import networking.wifi as wifi
 from network import LTE
 from networking.network_iot import LTE_Network
 from time import sleep
 from machine import Pin
-from lib.sim import Sim
+from sim import Sim
 from networking.remote_server import Remote_server
 from sensors.sensor import Sensor
 from sensors.button import Button
-from lib.variable_functions import list_string_to_list
+from variable_functions import list_string_to_list
 import validate
 
 log = logging.getLogger("UE")

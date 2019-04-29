@@ -1,9 +1,9 @@
 # Class that contains functions and parameters used for network
 # technologies and interfaces. This class will be used to configure
 # the different Interfaces and interact between them.
-import lib.logging as logging
+import logging as logging
 from networking.wifi import WLAN_AP
-import lib.messages as messages
+import messages as messages
 from network import LTE
 from time import sleep
 import re

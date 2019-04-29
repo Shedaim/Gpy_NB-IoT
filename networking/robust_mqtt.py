@@ -1,6 +1,6 @@
 import utime
 from networking import mqtt
-import lib.logging as logging
+import logging as logging
 
 log = logging.getLogger("robust_MQTT")
 

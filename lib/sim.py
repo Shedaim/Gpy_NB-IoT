@@ -1,5 +1,5 @@
 import re
-import lib.logging as logging
+import logging as logging
 
 log = logging.getLogger("Sim")
 
