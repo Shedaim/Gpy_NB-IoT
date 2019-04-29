@@ -48,10 +48,10 @@ class UE:
             # Get token on first time
             try:
                 if validate.is_valid_string(dictionary['Token'], 'token'):
-                    log.error("Token input is not valid")
-                else:
                     self.token = dictionary['Token']
                     del dictionary['Token']
+                else:
+                    log.error("Token input is not valid")
             except AttributeError:
                 log.exception("Could not read 'token' from configuration file.")
         else:
@@ -93,7 +93,7 @@ class UE:
         elif key == "remoteServer":
             if validate.is_valid_remote_server(val):
                 # Data in the form 'Protocol:IP:port'
-                self.config_remote(val)
+                self.config_remote(val.split(":"))
             else:
                 log.error("Remote Server input is not valid, " \
                 "using default values")

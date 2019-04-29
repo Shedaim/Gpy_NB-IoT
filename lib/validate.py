@@ -4,9 +4,9 @@ import logging
 log = logging.getLogger("Validate")
 
 NAME_REGEX = "[A-Za-z0-9_]+"
-TOKEN_REGEX = "[A-Za-z0-9]{20}"
+TOKEN_REGEX = "[A-Za-z0-9]+"
 PROTOCOL_REGEX = "MQTT||HTTP"
-PORT_REGEX = "[0-9]{1,5}"
+PORT_REGEX = "[0-9]+"
 
 def is_valid_type(user_input, expected_type):
     if expected_type == 'string':
@@ -47,7 +47,13 @@ def is_valid_remote_server(user_input):
         return False
     else:
         if not match_regex(PROTOCOL_REGEX, user_input[0]): return False
-        if not match_regex(PORT_REGEX, user_input[2]): return False
+        if not match_regex(PORT_REGEX, user_input[2]):
+            return False
+        else:
+            try:
+                if int(user_input[2]) > 65535: return False
+            except ValueError:
+                return False
         if not is_valid_ip(user_input[1]): return False
     return True
 
