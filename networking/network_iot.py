@@ -142,25 +142,29 @@ class LTE_Network:
                 retries = retries - 1
 
             if len(info) > 20:
-                info = info[18:32]
+                info = [x.strip(" ") for x in info[18:32]]
+                # Some of the answers contain many unnecessary spaces.
+                # Strip to get rid of them.
             else:
                 log.warning("Cell not found. Is the antenna connected?")
                 return False
-            # Some of the answers contain many unnecessary spaces.
-            # Strip to get rid of them.
-            self.cell.cell_type = info[0].strip(" ")
-            self.cell.dlarfcn = info[1].strip(" ")
-            self.cell.cpi = info[2].strip(" ")
-            self.cell.rsrp = info[5].strip(" ")
-            self.cell.reject_cause = info[13].strip(" ")
+
+            self.cell.cell_type = info[0]
+            self.cell.dlarfcn = info[1]
+            self.cell.cpi = info[2]
+            self.cell.rsrp = info[5]
+            self.cell.reject_cause = info[13]
             # Return the register state of a subscriber
             info = self.lte.send_at_cmd('AT+CEREG?').split(',')
             if info[1] in ['1', '5']:  # Both states indicate "Registered"
                 self.cell.registered = True
+                try:
+                    self.cell.tac = info[2].strip('"')
+                    self.cell.cell_id = info[3].strip('"')
+                except IndexError:
+                    log.warning("Could not read TAC and Cell_ID from CEREG AT command")
             else:
                 self.cell.registered = False
-            self.cell.tac = info[2].strip('"')
-            self.cell.cell_id = info[3].strip('"')
         return True
 
     # Gets the IP address of the device using AT-Commands
@@ -188,6 +192,15 @@ class LTE_Network:
         if was_connected:
             self.lte.connect()
 
+    # Create a list containing important data - Used if data
+    # is needed to be sent to server/database
+    def print_rf_details(self):
+        self.get_cell_details()
+        print ("[Cell ID:", self.cell.cell_id, ", DLarfcn:", self.cell.dlarfcn,
+         ", RSRP:", self.cell.rsrp, "]")
+        print ("[TAC:", self.cell.tac, ", Registered:", self.cell.registered,
+         ", Reject Cause:", self.cell.reject_cause, "]")
+
 class Cell:
 
     def __init__(self):
@@ -200,11 +213,6 @@ class Cell:
         self.reject_cause = None
         self.registered = None
         self.tac = None
-
-    # Create a list containing important data - Used if data
-    # is needed to be sent to server/database
-    def create_info_list(self):
-        return [self.cell_id, self.dlarfcn, self.rsrp, self.tac, self.registered, self.reject_cause]
 
     # Print the cell details - for debugging purposes
     def print_all(self):

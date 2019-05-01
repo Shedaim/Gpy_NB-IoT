@@ -74,10 +74,11 @@ class Sensor:
             log.info("Reading sensor {0} values: {1}".format(self.name, str(value)))
             return value
         else:
-            log.warning("Could not extract data from sensor: " + self.name)
+            result = result.get_error_data()
+            log.warning("Could not extract data from sensor: " + self.name
+             + "\n Error data: " + result)
 
     def door_state_interrupt(self, arg):
-        log.info(arg())
         if arg():
             value = 1
         else:
@@ -120,7 +121,6 @@ class Sensor:
         return self.value
 
     def fence(self, arg):
-        log.info(arg())
         if arg():
             value = 1
         else:
@@ -128,7 +128,6 @@ class Sensor:
         data = {'Fence': 'triggered'}
         messages.send_sensors_via_mqtt(self.ue, alarm=True, data=data)
         log.info("Fence state changed")
-        log.info(str(data))
 
     def start_sensor(self, ue):
         self.ue = ue

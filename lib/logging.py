@@ -1,5 +1,6 @@
 import sys
 from machine import SD
+import os
 
 CRITICAL = 50
 ERROR    = 40
@@ -22,13 +23,9 @@ class Logger:
 
     level = NOTSET
 
-    def __init__(self, name):
+    def __init__(self, name, sd):
         self.name = name
-        try:
-            self.sd = SD()
-        except OSError:
-            self.sd = None
-            self.info("SD card not found. Logs will not be saved to file.")
+        self.sd = sd
 
     def _level_str(self, level):
         l = _level_dict.get(level)
@@ -52,7 +49,7 @@ class Logger:
             else:
                 print(msg % args, file=_stream)
                 if self.sd is not None:
-                    self.save_to_file(level, msg, _stream, args)
+                    self.save_to_file(level, msg, _stream)
 
     def debug(self, msg, *args):
         self.log(DEBUG, msg, *args)
@@ -76,7 +73,7 @@ class Logger:
     def exception(self, msg, *args):
         self.exc(sys.exc_info()[1], msg, *args)
 
-    def save_to_file(self, level, msg, _stream, *args):
+    def save_to_file(self, level, msg, _stream):
         try:
             with open('/sd/logs.log','a') as file:
                 s = self._level_str(level) + ': ' + self.name + ': ' + msg + '\n'
@@ -86,11 +83,20 @@ class Logger:
 
 _level = INFO
 _loggers = {}
+_sdcard = None
 
 def getLogger(name):
+    global _sdcard
     if name in _loggers:
         return _loggers[name]
-    l = Logger(name)
+    if _sdcard is None:
+        try:
+            _sdcard = SD()
+            os.mount(_sdcard, '/sd')
+        except OSError:
+            _sdcard = None
+            print("SD card not found. Logs will not be saved to file.")
+    l = Logger(name, _sdcard)
     _loggers[name] = l
     return l
 

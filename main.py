@@ -1,9 +1,9 @@
 from time import sleep
-from lib.ue import UE
+from ue import UE
 from networking.network_iot import initialize_wifi
 import ujson
-import lib.logging as logging
-import lib.messages as messages
+import logging
+import messages
 from machine import SD
 import os
 
@@ -43,7 +43,7 @@ def main():
         # TODO to implement HTTP part
         pass
     # Send messages via mqtt, untill reconfiguration
-    elif ue.remote_server.mqtt is not None:  
+    elif ue.remote_server.mqtt is not None:
         ue.remote_server.mqtt.set_callback(_callback_message_to_config)
         log.info("Running mqtt first time")
         ue.remote_server.initialize_mqtt(ue.attributes["uploadFrequency"] * 3)
@@ -81,12 +81,6 @@ def main():
         else:
             # NEED to check LTE reconnection
             ue.lte.lte_connect_procedure()
-
-try:
-    sd = SD()
-    os.mount(sd, '/sd')
-except OSError:
-    log.warning("SD-Card not found.")
 
 # Initialize ue object and print it's data
 ue = UE()

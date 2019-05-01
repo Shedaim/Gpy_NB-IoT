@@ -15,7 +15,7 @@ class Sim:
         try:
             self.iccid = lte_obj.iccid().strip('"')
         except AttributeError as e:
-            log.exception(e)
+            log.exception("Could not extract ICCID details")
 
         # Get IMSI
         try:

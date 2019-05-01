@@ -22,6 +22,10 @@ class DTHResult:
     def is_valid(self):
         return self.error_code == DTHResult.ERR_NO_ERROR
 
+    def get_error_data(self):
+        return " ".join(["[ Error code:", str(self.error_code), ", Temp:",
+         str(self.temperature), ", Humidity: ", str(self.humidity), "]"])
+
 
 class DTH:
     'DHT sensor (dht11, dht21,dht22) reader class for Pycom'

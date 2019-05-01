@@ -21,7 +21,7 @@ class MQTTClient(mqtt.MQTTClient):
         i = 0
         while 1:
             try:
-                #super().disconnect()
+                super().disconnect()
                 return super().connect(False)
             except OSError as e:
                 log.exception("MQTT Reconnect ERROR:")

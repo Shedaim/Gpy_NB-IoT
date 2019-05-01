@@ -4,5 +4,5 @@
   "Token":"dcg4j4BUSOOvU4yUYbHx",
   "LTE":[28],
   "remoteServer":"MQTT:172.17.60.2:1883",
-  "Sensors":["OnPycom_Temp,cpu_temp,0", "dth11,dth11,G6,G7,G8", "fence1,abt_100,G11"]
+  "Sensors":["OnPycom_Temp,cpu_temp,0", "dth11,dth11,G6,G7,G8", "fence1,abt_100,G9"]
 }
