@@ -1,22 +1,26 @@
-import re
 import logging
 import ujson
 import networking.wifi as wifi
-from network import LTE
-from networking.network_iot import LTE_Network
-from time import sleep
+from networking.network_iot import LTENetwork
 from machine import Pin
 from sim import Sim
-from networking.remote_server import Remote_server
+from networking.remoteserver import RemoteServer
 from sensors.sensor import Sensor
 from sensors.button import Button
 from variable_functions import list_string_to_list
 import validate
+from time import sleep
+import messages
 
 log = logging.getLogger("UE")
 
 DEFAULT_UPLOAD_FREQUENCY = 10
 DEFAULT_NAME = "PycomDevice"
+
+# Modes of operation
+TELEMTRY_MODE = 1
+HTTP_RELAY_MODE = 2
+WARNING_MODE_ONLY = 3
 
 
 class UE:
@@ -30,14 +34,23 @@ class UE:
         self.sensors = set()
         self.token = None
         self.remote_server = None
-        self.attributes = {'uploadFrequency': 10, 'deviceName': 'Pycom'}
+        self.attributes = {'uploadFrequency': DEFAULT_UPLOAD_FREQUENCY,
+                           'deviceName': DEFAULT_NAME}
         self.shared_attributes = ['sharedKeys']
         self.client_attributes = None
         self.server_attributes = None
         self.config_message = False
-        self.get_config(initial=True)
-        self.sim.get_sim_details(self.lte.lte)
+        self.operation_mode = TELEMTRY_MODE
 
+        self.__post_init__()
+
+    def __post_init__(self):
+        self.get_config(initial=True)
+        sleep(2)
+        # Wait untill initial configuration has been updated
+        self.start_sensors()
+        self.sim.get_sim_details(self.lte.lte)
+        self.start_operation_mode()
 
     # Create HTTP message to download configurations or read from saved file
     def get_config(self, initial=False):
@@ -54,10 +67,10 @@ class UE:
                     log.error("Token input is not valid")
             except AttributeError:
                 log.exception("Could not read 'token' from configuration file.")
+            log.info('Read initial configuration: ' + result)
         else:
             # TODO Get all attributes
             dictionary = dict()
-        log.info('Read initial configuration: ' + result)
         self.turn_dict_to_config(dictionary)
 
     # Convert dictionary to specific object configurations
@@ -97,13 +110,13 @@ class UE:
             else:
                 log.error("Remote Server input is not valid, " \
                 "using default values")
-                from networking.remote_server import DEFAULT_REMOTE_SERVER
+                from networking.remoteserver import DEFAULT_REMOTE_SERVER
                 self.config_remote(DEFAULT_REMOTE_SERVER)
 
         elif key == "LTE":
             if validate.is_valid_lte_bands(val):
                 if self.lte is None:
-                    self.lte = LTE_Network(bands=val)
+                    self.lte = LTENetwork(bands=val)
                 else:
                     self.lte.bands = val
             else:
@@ -134,6 +147,12 @@ class UE:
             self.button = Button(val[0], val[1:])
             self.button.pin.callback(Pin.IRQ_RISING, self.button_pressed)
 
+        elif key == "operation_mode":
+            if validate.is_valid_operation_mode(val):
+                self.operation_mode = val
+            else:
+                self.operation_mode = TELEMTRY_MODE
+
         elif key == 'sharedKeys':
             self.shared_attributes = list_string_to_list(val)
 
@@ -156,12 +175,72 @@ class UE:
             log.warning("Key '{0}' does not match any configure key." \
             .format(key))
 
+    def start_operation_mode(self, operation_mode):
+        if operation_mode == 1:
+            self.start_lte()
+            self.start_mqtt()
+            # AS long as the device is connected to the LTE network,
+            # send telemetry
+            while self.lte.lte.isconnected():
+                if self.remote_server.mqtt is not None:
+                    self.send_telemetry_mqtt()
+                    self.remote_server.mqtt.check_msg()
+                elif self.remote_server.http is not None:
+                    pass
+                    # TODO - add HTTP support for telemetry communication
+                sleep(self.attributes['uploadFrequency'])
+        elif operation_mode == 2:
+            pass
+
+        elif operation_mode == 3:
+            self.start_lte()
+            self.start_mqtt()
+            while self.lte.lte.isconnected():
+                if self.remote_server.mqtt is not None:
+                    self.start_mqtt()
+                    self.remote_server.mqtt.wait_msg()
+                elif self.remote_server.http is not None:
+                    pass
+                    # TODO - add HTTP support for telemetry communication
+        # Restart op_mode if disconnected
+        self.start_operation_mode(self.operation_mode)
+
+    def start_lte(self):
+        if self.lte and self.sim.iccid:
+            self.lte.initialize_lte()
+            self.lte.lte_connect_procedure()
+            sleep(1)  # Making sure we wait a second before sending data
+        else:
+            log.error("LTE start was unsuccessful.")
+
+    def start_mqtt(self):
+        if self.remote_server.mqtt.sock is not None:
+            try:
+                self.mqtt.disconnect()
+            except OSError:
+                log.debug("MQTT object failed to disconnect.")
+        self.remote_server.mqtt.set_callback(_callback_message_to_config)
+        log.info("Running mqtt first time")
+        self.remote_server.initialize_mqtt(self.attributes["uploadFrequency"] * 3)
+        # Initial configuration - ask for shared attributes
+        messages.request_attributes(self.remote_server, self.client_attributes,
+                                    self.server_attributes, self.shared_attributes)
+        self.remote_server.mqtt.wait_msg()
+        # Get shared attributes for initial configuration
+        messages.request_attributes(self.remote_server, self.client_attributes,
+                                    self.server_attributes, self.shared_attributes)
+        self.remote_server.mqtt.wait_msg()
+
+    def send_telemetry_mqtt(self):
+        log.info("Trying to send sensor")
+        messages.send_sensors_via_mqtt(self)
+
     # Config the remote server details given configuration data
     def config_remote(self, data):
         protocol = data[0]
         ip = data[1]
         port = int(data[2])
-        self.remote_server = Remote_server(protocol, ip, port, self.token)
+        self.remote_server = RemoteServer(protocol, ip, port, self.token)
 
     # Config the Wifi module
     def config_wifi(self, data):
@@ -187,9 +266,9 @@ class UE:
         for sensor in self.sensors:
             # Sensor already configured.
             if (sensor.name == data[0] and sensor.model == data[1] and
-            sensor.pins == data[2:]):
+                    sensor.pins == data[2:]):
                 log.info("Sensor {0} already exists. No changes done."
-                .format(sensor.name))
+                         .format(sensor.name))
                 return
             # Sensor already configured but changes need to be done.
             # Found sensor with the same name but different configuration.
@@ -201,7 +280,6 @@ class UE:
                 return
         # No similar sensor found.
         self.add_sensor(data[0], data[1], data[2:])
-
 
     # Function used to configure a new sensor
     def add_sensor(self, name, model, pins: []):
@@ -219,7 +297,6 @@ class UE:
                 log.info("Sensor {0} removed successfully.".format(name))
                 return
         log.info("Sensor {0} not found.".format(name))
-
 
     # Create a list containing important data -
     # Used if data is needed to be sent to server/database
@@ -261,7 +338,8 @@ class UE:
             for sensor in vibrators:
                 sensor.stop_vibrator()
             for sensor in lcds:
-                if not sensor.alarm: # Dont turn off display if an alarm just occurred
+                # Dont turn off display if an alarm just occurred
+                if not sensor.alarm:
                     sensor.invert_display_state()
                 else:
                     sensor.alarm = False
@@ -285,3 +363,18 @@ class UE:
     # Helper function to easily ping a remote server.
     def ping(self, ip):
         self.p('AT!="IP::ping {0}"'.format(ip))
+
+
+def _callback_message_to_config(topic, message):
+    from main import this_device as ue
+    remote = ue.remote_server
+    message = message.decode('UTF-8')
+    topic = topic.decode('UTF-8')
+    log.info("Recieved message {1} to topic {0}".format(topic, message))
+    ue.turn_dict_to_config(ujson.loads(message))
+    if ue.remote_server != remote:
+        if ue.remote_server.mqtt is not None: # Server is communicating via MQTT
+            ue.remote_server.mqtt.set_callback(_callback_message_to_config)
+            ue.remote_server.initialize_mqtt(ue.attributes["uploadFrequency"] * 3)
+    # We successfully recieved one message, check if another is waiting.
+    ue.remote_server.mqtt.check_msg()

@@ -1,6 +1,7 @@
 from ue import UE
 
-class debug():
+
+class Debug:
     def __init__(self):
         self.ue_obj = UE()
 

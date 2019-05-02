@@ -19,6 +19,7 @@ _level_dict = {
 
 _stream = sys.stderr
 
+
 class Logger:
 
     level = NOTSET
@@ -81,9 +82,11 @@ class Logger:
         except OSError as e:
             sys.print_exception(e, _stream)
 
+
 _level = INFO
 _loggers = {}
 _sdcard = None
+
 
 def getLogger(name):
     global _sdcard

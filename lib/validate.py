@@ -9,6 +9,7 @@ PROTOCOL_REGEX = "MQTT||HTTP"
 PORT_REGEX = "[0-9]+"
 PIN_REGEX = "G[0-9]+|0"
 
+
 def is_valid_type(user_input, expected_type):
     if expected_type == 'string':
         return True if isinstance(user_input, str) else False
@@ -16,13 +17,13 @@ def is_valid_type(user_input, expected_type):
         return True if isinstance(user_input, list) else False
     elif expected_type == 'int':
         try:
-            user_input = int(user_input)
+            int(user_input)
             return True
         except ValueError:
             return False
     elif expected_type == 'float':
         try:
-            user_input = float(user_input)
+            float(user_input)
             return True
         except ValueError:
             return False
@@ -90,9 +91,9 @@ def is_valid_lte_bands(bands):
     return True
 
 
-#[2,"PycomWifi","p@ssw0rd",11,0,"172.17.60.2","255.255.255.0"]
+# [2,"PycomWifi","p@ssw0rd",11,0,"172.17.60.2","255.255.255.0"]
 def is_valid_wifi(input):
-    if not is_valid_type(input, "list") or not len(input) in [7,9]: return False
+    if not is_valid_type(input, "list") or not len(input) in [7, 9]: return False
     # check AP/STATION conf
     try:
         if int(input[0]) not in [1,2]: return False
@@ -145,9 +146,19 @@ def is_valid_subnet(ip):
 def is_valid_ip(ip):
     ip = ip.split('.')
     if len(ip) != 4: return False
-    for oct in ip:
+    for octat in ip:
         try:
-            if (int(oct) < 0 or int(oct) > 255): return False
+            if int(octat) < 0 or int(octat) > 255: return False
         except ValueError:
             return False
     return True
+
+
+def is_valid_operation_mode(mode):
+    try:
+        if int(mode) in [1, 2, 3]:
+            return True
+        else:
+            return False
+    except ValueError:
+        return False

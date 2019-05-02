@@ -5,8 +5,10 @@ import logging
 
 log = logging.getLogger("MQTT")
 
+
 class MQTTException(Exception):
     pass
+
 
 class MQTTClient:
 

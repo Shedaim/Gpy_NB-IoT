@@ -10,14 +10,42 @@ import re
 
 log = logging.getLogger("LTE_Network")
 
-class LTE_Network:
+
+class LTENetwork:
 
     def __init__(self, bands: []):
         self.lte = LTE()
         self.bands = bands
-        #self.net_type = net_type
         self.cell = Cell()
         self.ip = None
+
+    # Initialize LTE network
+    def initialize_lte(self):
+        # Make initial configuration to modem
+        self.p('AT!="setDbgPerm full"')
+        self.configure_lte_network()
+        log.info("LTE network initialized.")
+
+    # Use the bands entered to re-configure the LTE modem
+    def configure_lte_network(self):
+        log.info(
+            "Configuring network with variables: Network = {0}, bands = {1}"
+            .format("LTE", str(self.bands)))
+        if self.bands:
+            # Delete existing bands from scan list
+            self.lte.send_at_cmd('AT+CFUN=0')
+            self.lte.send_at_cmd('AT!="clearscanconfig"')
+            self.lte.send_at_cmd('AT+CGDCONT=1,"IP","secure.motolab.com"')
+            # Add required bands to scan list
+            for band in self.bands:
+                self.lte.send_at_cmd(
+                    'AT!="addscanband band={0}"'.format(band))
+            # Restart modem with new configuration
+            self.lte.send_at_cmd('AT+CFUN=1')
+            # Put UE in "Try to register" mode
+            self.lte.send_at_cmd('AT+CEREG=2')
+        else:
+            log.warning("No bands added to LTE scan list.")
 
     # Connect device to an LTE system
     def lte_connect_procedure(self):
@@ -25,9 +53,6 @@ class LTE_Network:
             self.lte_attach()
         if not self.lte.isconnected():
             self.lte_connect(cid=1)  # Need to check if it's possible to get a different cid
-        # Wait untill connected to a network
-        while not self.lte.isconnected():
-            sleep(1)
 
     # Function used to attach and dettach from an LTE network
     # Use retries for a non-blocking attach
@@ -98,33 +123,38 @@ class LTE_Network:
             print('')
             log.info("Failed to connect after {0} retries".format(retries))
 
+    # Gets the IP address of the device using AT-Commands
+    def get_ip(self):
+        # Get IP address
+        try:
+            self.ip = re.search(',[\"0-9\.]+', self.lte.send_at_cmd('AT+CGPADDR')).group(0).strip(',"')
+        except AttributeError:
+            log.exception("Could not get IP address from. Wait and try again later.")
 
-    # Initialize LTE network
-    def initialize_lte(self):
-        # Make initial configuration to modem
-        self.p('AT!="setDbgPerm full"')
-        self.configure_lte_network()
-        log.info("LTE network initialized.")
+    def print_info(self):
+        print("Network type: LTE")
+        print("Bands: " + ','.join([str(x) for x in self.bands]))
 
-    # Use the bands entered to re-configure the LTE modem
-    def configure_lte_network(self):
-        log.info("Configuring network with variables: Network = {0}, bands = {1}"
-                 .format("LTE", str(self.bands)))
-        if self.bands:
-            # Delete existing bands from scan list
-            self.lte.send_at_cmd('AT+CFUN=0')
-            self.lte.send_at_cmd('AT!="clearscanconfig"')
-            self.lte.send_at_cmd('AT+CGDCONT=1,"IP","secure.motolab.com"')
-            # Add required bands to scan list
-            for band in self.bands:
-                self.lte.send_at_cmd('AT!="addscanband band={0}"'.format(band))
-            # Restart modem with new configuration
-            self.lte.send_at_cmd('AT+CFUN=1')
-            # Put UE in "Try to register" mode
-            self.lte.send_at_cmd('AT+CEREG=2')
-        else:
-            log.warning("No bands added to LTE scan list.")
+    # Helper function to easily execute AT-commands and print it's contents.
+    # Disconnects and connects to LTE network to become a non-blocking function.
+    def p(self, cmd):
+        was_connected = self.lte.isconnected()
+        if was_connected:
+            self.lte.disconnect()
+        response = self.lte.send_at_cmd(cmd)
+        # take all lines of the response excluding empty lines
+        for i in [x for x in response.split('\r\n') if x]:
+            print(i)
+        if was_connected:
+            self.lte.connect()
 
+    # Get RF details and print to console - used for debugging purposes
+    def print_rf_details(self):
+        self.get_cell_details()
+        print("[Cell ID:", self.cell.cell_id, ", DLarfcn:", self.cell.dlarfcn,
+              ", RSRP:", self.cell.rsrp, "]")
+        print("[TAC:", self.cell.tac, ", Registered:", self.cell.registered,
+              ", Reject Cause:", self.cell.reject_cause, "]")
 
     # Gets details of the serving cell indexes the valued data into the class
     def get_cell_details(self):
@@ -138,7 +168,8 @@ class LTE_Network:
             while len(info) <= 20 and retries > 0:
                 sleep(1)
                 print('.', end='')
-                info = self.lte.send_at_cmd('AT!="showDetectedCell"').split('|')
+                info = self.lte.send_at_cmd('AT!="showDetectedCell"').split(
+                    '|')
                 retries = retries - 1
 
             if len(info) > 20:
@@ -162,49 +193,16 @@ class LTE_Network:
                     self.cell.tac = info[2].strip('"')
                     self.cell.cell_id = info[3].strip('"')
                 except IndexError:
-                    log.warning("Could not read TAC and Cell_ID from CEREG AT command")
+                    log.warning(
+                        "Could not read TAC and Cell_ID from CEREG AT command")
             else:
                 self.cell.registered = False
         return True
 
-    # Gets the IP address of the device using AT-Commands
-    def get_ip(self):
-        # Get IP address
-        try:
-            self.ip = re.search(',[\"0-9\.]+', self.lte.send_at_cmd('AT+CGPADDR')).group(0).strip(',"')
-        except AttributeError:
-            log.exception("Could not get IP address from. Wait and try again later.")
-
-
-    def print_info(self):
-        print("Network type: " + self.net_type)
-        print("Bands: " + ','.join([str(x) for x in self.lte_bands]))
-
-    # Helper function to easily execute AT-commands and print it's contents.
-    # Disconnects and connects to LTE network to become a non-blocking function.
-    def p(self, cmd, delay=0):
-        was_connected = self.lte.isconnected()
-        if was_connected:
-            self.lte.disconnect()
-        response = self.lte.send_at_cmd(cmd)
-        for i in [x for x in response.split('\r\n') if x]:  # take all lines of the response excluding empty lines
-            print(i)
-        if was_connected:
-            self.lte.connect()
-
-    # Create a list containing important data - Used if data
-    # is needed to be sent to server/database
-    def print_rf_details(self):
-        self.get_cell_details()
-        print ("[Cell ID:", self.cell.cell_id, ", DLarfcn:", self.cell.dlarfcn,
-         ", RSRP:", self.cell.rsrp, "]")
-        print ("[TAC:", self.cell.tac, ", Registered:", self.cell.registered,
-         ", Reject Cause:", self.cell.reject_cause, "]")
 
 class Cell:
 
     def __init__(self):
-        #self.lte = lte
         self.cell_id = None
         self.cpi = None
         self.cell_type = None
@@ -230,13 +228,3 @@ class Cell:
         else:
             log.info("No data to display.")
 
-# Initialize WiFi
-def initialize_wifi(ue):
-    # Check if WiFi is configured to be turned on
-    if ue.wifi.mode == WLAN_AP:
-        # Create access point for wifi
-        ue.wifi.print_wifi()
-    else: # Device needs to connect to a remote wifi gateway
-        # Try to connect to wifi gateway and get ip adress and gw info
-        ue.wifi.print_wifi()
-    log.info("WiFi network initialized in mode: " + str(ue.wifi.mode))
